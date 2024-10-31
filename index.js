@@ -8,8 +8,8 @@ const express = require('express');
 const MAX_DAILY_ADS = 100;
 const ADS_PER_REWARD = 15;
 const REWARD_AMOUNT = 20;
-const INITIAL_MIN_PAYOUT = 20; // First withdrawal minimum
-const SUBSEQUENT_MIN_PAYOUT = 100; // Subsequent withdrawals minimum
+const INITIAL_MIN_PAYOUT = 20;
+const SUBSEQUENT_MIN_PAYOUT = 100;
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const app = express();
@@ -21,7 +21,8 @@ app.listen(PORT, () => {
 });
 
 const webAppUrl = `https://claw-earning.onrender.com`;
-const channelId = '@ClawEarning'; // Replace with your actual channel ID
+const channelId = '@ClawEarning'; // Your official channel ID
+const adminUserId = 'YOUR_ADMIN_USER_ID'; // Replace with your Telegram user ID for forwarding support requests
 const dataFilePath = path.join(__dirname, 'data.json');
 
 // Function to read data from JSON file
@@ -191,6 +192,48 @@ bot.on('web_app_data', (ctx) => {
     writeData(users);
     ctx.reply(`🎉 You earned ${bonus} rupees from the quiz! Your new balance is ${users[userId].balance} rupees.`);
   }
+});
+
+// Support Command for Automated Support Options
+bot.command('support', (ctx) => {
+  ctx.reply('Welcome to Support! Choose an option below for assistance:', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'Balance Inquiry', callback_data: 'support_balance' }],
+        [{ text: 'Withdrawal Help', callback_data: 'support_withdrawal' }],
+        [{ text: 'Referral Questions', callback_data: 'support_referral' }],
+        [{ text: 'Contact Support', callback_data: 'support_contact' }]
+      ]
+    }
+  });
+});
+
+// Support Responses
+bot.action('support_balance', (ctx) => {
+  ctx.reply('To check your balance, simply use the /balance command. If you need further assistance, please let us know.');
+});
+
+bot.action('support_withdrawal', (ctx) => {
+  ctx.reply('To request a withdrawal, ensure your balance meets the minimum payout requirement. Use /withdraw to initiate a payout request.');
+});
+
+bot.action('support_referral', (ctx) => {
+  ctx.reply('Use your unique referral link (available via /referral) to invite friends. Each successful referral earns you a bonus!');
+});
+
+// Contact Admin for Additional Support
+bot.action('support_contact', (ctx) => {
+  const userId = ctx.from.id;
+  const username = ctx.from.username || 'User';
+
+  // Notify the user
+  ctx.reply('An admin will contact you shortly for further assistance.');
+
+  // Forward the message to the admin
+  bot.telegram.sendMessage(
+    adminUserId,
+    `Support request from ${username} (User ID: ${userId}):\n\nThe user requested additional support.`
+  );
 });
 
 // Error handling
