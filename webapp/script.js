@@ -6,13 +6,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const leaderboardList = document.getElementById('leaderboardList');
 
   let isSpinning = false;
-  const spinRewards = [10, 20, 5, 50, 15, 30, 25, 100]; // Amounts on the spin wheel
+  const spinRewards = [10, 20, 5, 50, 15, 30, 25, 100]; // Prize amounts on the wheel
 
+  // Initialize balance and leaderboard
   async function initialize() {
     await fetchBalance();
     await fetchLeaderboard();
   }
 
+  // Fetch user balance
   async function fetchBalance() {
     try {
       const response = await fetch('/api/balance');
@@ -23,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Fetch leaderboard
   async function fetchLeaderboard() {
     try {
       const response = await fetch('/api/leaderboard');
@@ -38,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Spin button logic
   spinButton.addEventListener('click', async () => {
     if (isSpinning) return;
 
@@ -45,16 +49,21 @@ document.addEventListener('DOMContentLoaded', () => {
     resultDisplay.textContent = '';
     spinButton.disabled = true;
 
+    // Select a random reward and calculate the rotation
     const rewardIndex = Math.floor(Math.random() * spinRewards.length);
     const rewardAmount = spinRewards[rewardIndex];
-    const rotation = (360 / spinRewards.length) * rewardIndex + (360 * 5); // 5 full rotations
+    const rotation = (360 / spinRewards.length) * rewardIndex + (360 * 5); // Adds extra spins for visual effect
 
+    // Animate the spin
     wheel.style.transition = 'transform 4s ease-out';
     wheel.style.transform = `rotate(${rotation}deg)`;
 
+    // After animation ends
     setTimeout(async () => {
       wheel.style.transition = 'none';
       wheel.style.transform = `rotate(${(360 / spinRewards.length) * rewardIndex}deg)`;
+
+      // Display result and update balance
       resultDisplay.textContent = `🎉 You won ${rewardAmount} rupees!`;
       await updateBalance(rewardAmount);
       await fetchBalance();
@@ -65,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4000);
   });
 
+  // Update user balance
   async function updateBalance(amount) {
     try {
       await fetch('/api/updateBalance', {
@@ -79,5 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Initialize the app
   initialize();
 });
