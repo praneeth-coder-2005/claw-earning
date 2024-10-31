@@ -1,34 +1,81 @@
-/* styles.css */
-
-body {
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
   font-family: Arial, sans-serif;
+}
+
+.app-container {
+  text-align: center;
   padding: 20px;
-  background-color: #f9f9f9;
 }
 
-h1 {
-  text-align: center;
+h1, h2 {
+  color: #333;
 }
 
-#quiz-container {
-  max-width: 600px;
-  margin: 0 auto;
+.wheel-container {
+  margin: 20px 0;
 }
 
-.question {
-  margin-bottom: 20px;
+.wheel {
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  border: 5px solid #333;
+  position: relative;
+  overflow: hidden;
+  transform: rotate(0deg);
+  transition: transform 4s ease-out;
 }
 
-.options button {
-  display: block;
-  width: 100%;
-  margin-bottom: 10px;
-  padding: 10px;
-  font-size: 16px;
-}
-
-#result {
-  font-size: 18px;
+.wheel-section {
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  background-color: #f1c40f;
+  color: #fff;
   font-weight: bold;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: 100% 100%;
 }
+
+.wheel-section:nth-child(1) { transform: rotate(0deg) skewY(-45deg); }
+.wheel-section:nth-child(2) { transform: rotate(45deg) skewY(-45deg); background-color: #e67e22; }
+.wheel-section:nth-child(3) { transform: rotate(90deg) skewY(-45deg); background-color: #3498db; }
+.wheel-section:nth-child(4) { transform: rotate(135deg) skewY(-45deg); background-color: #2ecc71; }
+.wheel-section:nth-child(5) { transform: rotate(180deg) skewY(-45deg); background-color: #9b59b6; }
+.wheel-section:nth-child(6) { transform: rotate(225deg) skewY(-45deg); background-color: #e74c3c; }
+.wheel-section:nth-child(7) { transform: rotate(270deg) skewY(-45deg); background-color: #1abc9c; }
+.wheel-section:nth-child(8) { transform: rotate(315deg) skewY(-45deg); background-color: #34495e; }
+
+#spinButton {
+  margin-top: 20px;
+  padding: 10px 20px;
+  font-size: 18px;
+  color: white;
+  background-color: #333;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#spinButton:disabled {
+  background-color: #888;
+}
+
+.leaderboard {
+  margin-top: 40px;
+}
+
+.leaderboard ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.leaderboard li {
+  font-size: 18px;
+  margin: 5px 0;
+  }
