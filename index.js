@@ -5,10 +5,12 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 
-// Initialize the bot with the token from environment variables
+const MAX_DAILY_ADS = 100; // Maximum ads a user can view daily
+const ADS_PER_REWARD = 15; // Number of ads required for one reward payout
+const REWARD_AMOUNT = 20; // Amount rewarded after viewing ADS_PER_REWARD ads
+
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// Express app setup
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -20,10 +22,7 @@ app.listen(PORT, () => {
   console.log(`Web server is running on port ${PORT}`);
 });
 
-// Web App URL
-const webAppUrl = process.env.WEB_APP_URL || `https://claw-earning.onrender.com/`;
-
-// Other variables and functions remain the same
+const webAppUrl = `https://claw-earning.onrender.com`; // Updated Web App URL
 const channelId = '@ClawEarning'; // Replace with your actual channel ID
 const dataFilePath = path.join(__dirname, 'data.json');
 
@@ -50,89 +49,90 @@ const writeData = (data) => {
   }
 };
 
-// Bot /start command
+// Bot /start command with referral link
 bot.start(async (ctx) => {
-  try {
-    const userId = ctx.from.id;
+  const userId = ctx.from.id;
+  const users = readData();
+  const currentDate = new Date().toDateString();
 
-    const users = readData(); // Read current users from file
+  if (!users[userId]) {
+    users[userId] = { balance: 20, receivedBonus: true, referrals: 0, adsWatched: 0, lastAdDate: currentDate };
+    writeData(users);
 
-    // Check for referral parameter in the context
-    const messageText = ctx.message.text;
-    let referralUserId = null;
-    if (messageText.includes('ref=')) {
-      referralUserId = messageText.split('ref=')[1];
-    }
-
-    if (!users[userId]) {
-      // New user, set initial balance and bonus
-      users[userId] = { balance: 20, receivedBonus: true, referrals: 0 };
-      writeData(users);
-
-      // Increment referrer's referrals if applicable
-      if (referralUserId && users[referralUserId]) {
-        users[referralUserId].referrals += 1;
-        writeData(users);
-        ctx.reply(
-          `Thank you for joining through a referral! Your referrer now has ${users[referralUserId].referrals} referrals.`
-        );
-      }
-
-      // Generate referral link
-      const botUsername = ctx.botInfo.username;
-      const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
-
-      // Send welcome message with referral link
-      ctx.reply(
-        `Thank you for joining! You have received a 20 rupees bonus.\n\n` +
-          `Your referral link: ${referralLink}\n\n` +
-          '🎉 **Welcome to the Earning Program!** 🎉\n\n' +
-          'Here’s how you can earn rewards:\n\n' +
-          '🌟 **Referral Bonuses:**\n' +
-          '➡️ For every successful referral, you earn **20 rupees**!\n' +
-          '➡️ Each referral gives you the opportunity to watch **15 ads**.\n' +
-          '➡️ The more friends you invite, the more you earn!\n\n' +
-          '📅 **Daily Ad Viewing Limit:**\n' +
-          '➡️ You can watch up to **100 ads** per day!\n' +
-          '➡️ Come back tomorrow to continue watching any remaining ads and maximize your earnings!\n\n' +
-          '🔥 **Special Bonus:**\n' +
-          '➡️ Invite **5 friends** and get an additional **50 rupees** bonus!\n\n' +
-          '🎁 **Your earnings are just a referral away!**\n\n' +
-          '📢 **Stay tuned for more updates and exciting offers!**',
-        { parse_mode: 'Markdown' }
-      );
-    } else {
-      ctx.reply('Welcome back! You have already received your 20 rupees bonus.');
-    }
-  } catch (error) {
-    console.error('Error in /start command:', error);
-    ctx.reply('An error occurred while processing your request. Please try again later.');
+    const botUsername = ctx.botInfo.username;
+    const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
+    ctx.reply(
+      `Welcome! You have received a 20 rupees bonus.\n\n` +
+      `Your referral link: ${referralLink}\n\n` +
+      `Start earning by watching ads and referring friends!`,
+      { parse_mode: 'Markdown' }
+    );
+  } else {
+    ctx.reply('Welcome back! You have already received your 20 rupees bonus.');
   }
 });
 
-// Command to get the referral link again
+// Referral link command
 bot.command('referral', (ctx) => {
-  try {
-    const userId = ctx.from.id;
-    const users = readData();
+  const userId = ctx.from.id;
+  const users = readData();
 
-    if (users[userId]) {
-      const botUsername = ctx.botInfo.username;
-      const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
-      ctx.reply(`Your referral link: ${referralLink}`);
-    } else {
-      ctx.reply('Please start the bot first using /start.');
-    }
-  } catch (error) {
-    console.error('Error in /referral command:', error);
-    ctx.reply('An error occurred while processing your request. Please try again later.');
+  if (users[userId]) {
+    const botUsername = ctx.botInfo.username;
+    const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
+    ctx.reply(`Your referral link: ${referralLink}`);
+  } else {
+    ctx.reply('Please start the bot first using /start.');
+  }
+});
+
+// Command to simulate watching an ad
+bot.command('watch_ad', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const currentDate = new Date().toDateString();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  if (users[userId].lastAdDate !== currentDate) {
+    users[userId].adsWatched = 0;
+    users[userId].lastAdDate = currentDate;
+  }
+
+  if (users[userId].adsWatched >= MAX_DAILY_ADS) {
+    ctx.reply('You have reached your daily ad viewing limit. Come back tomorrow!');
+    return;
+  }
+
+  users[userId].adsWatched += 1;
+  if (users[userId].adsWatched % ADS_PER_REWARD === 0) {
+    users[userId].balance += REWARD_AMOUNT;
+    ctx.reply(`🎉 You've watched ${users[userId].adsWatched} ads and earned ${REWARD_AMOUNT} rupees!`);
+  } else {
+    ctx.reply(`You've watched ${users[userId].adsWatched} ads today.`);
+  }
+
+  writeData(users);
+});
+
+// Command to check balance
+bot.command('balance', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+
+  if (users[userId]) {
+    ctx.reply(`Your current balance is ${users[userId].balance} rupees.`);
+  } else {
+    ctx.reply('Please start the bot first using /start.');
   }
 });
 
 // Mini App Command - Launch Quiz Web App
 bot.command('quiz', (ctx) => {
   try {
-    // Send a message with a button to open the web app
     ctx.reply('Click the button below to start the quiz:', {
       reply_markup: {
         inline_keyboard: [
@@ -155,66 +155,31 @@ bot.command('quiz', (ctx) => {
 
 // Handle data sent from the web app
 bot.on('web_app_data', (ctx) => {
-  try {
-    const userId = ctx.from.id;
-    const data = JSON.parse(ctx.webAppData.data); // The data sent from the web app
-    const users = readData();
+  const userId = ctx.from.id;
+  const data = JSON.parse(ctx.webAppData.data); // The data sent from the web app
+  const users = readData();
 
-    // Update user's balance based on quiz score
-    if (data.score !== undefined && users[userId]) {
-      const bonus = data.score * 5; // Example: 5 rupees per correct answer
-      users[userId].balance += bonus;
-      writeData(users);
-      ctx.reply(`🎉 You earned ${bonus} rupees from the quiz! Your new balance is ${users[userId].balance} rupees.`);
-    }
-  } catch (error) {
-    console.error('Error handling web app data:', error);
-    ctx.reply('An error occurred while processing your quiz results. Please try again later.');
+  if (data.score !== undefined && users[userId]) {
+    const bonus = data.score * 5; // Example: 5 rupees per correct answer
+    users[userId].balance += bonus;
+    writeData(users);
+    ctx.reply(`🎉 You earned ${bonus} rupees from the quiz! Your new balance is ${users[userId].balance} rupees.`);
   }
 });
 
-// Check channel membership and give bonus if joined
-bot.command('check_joined', async (ctx) => {
-  try {
-    const userId = ctx.from.id;
-
-    const member = await ctx.telegram.getChatMember(channelId, userId);
-
-    if (['member', 'administrator', 'creator'].includes(member.status)) {
-      const users = readData();
-
-      if (users[userId] && !users[userId].receivedBonus) {
-        users[userId].balance += 20;
-        users[userId].receivedBonus = true;
-        writeData(users);
-        ctx.reply('Thank you for joining! You have received a 20 rupees bonus.');
-      } else {
-        ctx.reply('You have already received your bonus.');
-      }
-    } else {
-      ctx.reply('Please join our official channel to receive the bonus.');
-    }
-  } catch (error) {
-    console.error('Error in /check_joined command:', error);
-    ctx.reply('An error occurred while checking your membership. Please try again later.');
-  }
-});
-
-// Global error handling
+// Error handling
 bot.catch((err, ctx) => {
-  console.error(`Global error handler: ${ctx.updateType}`, err);
+  console.error(`Error: ${ctx.updateType}`, err);
   ctx.reply('An unexpected error occurred. Please try again later.');
 });
 
-// Handle unhandled promise rejections and uncaught exceptions
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Unhandled Rejection:', reason);
 });
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
 });
 
-// Launch the bot
 bot.launch().then(() => {
   console.log('Bot is running...');
 });
