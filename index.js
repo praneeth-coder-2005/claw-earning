@@ -19,7 +19,7 @@ app.listen(PORT, () => {
 });
 
 // Web App URL (update this with your actual URL when deploying)
-const webAppUrl = process.env.WEB_APP_URL || `http://localhost:${PORT}`;
+const webAppUrl = process.env.WEB_APP_URL || `https://claw-earning.onrender.com`;
 
 // Other variables and functions remain the same
 const channelId = '@ClawEarning'; // Replace with your actual channel ID
