@@ -28,14 +28,18 @@ bot.start(async (ctx) => {
   const users = readData(); // Read current users from file
 
   // Check for referral parameter in the context
-  const referralUserId = ctx.message.text.split('ref=')[1]; // Get the referrer ID from the text
+  const messageText = ctx.message.text;
+  let referralUserId = null;
+  if (messageText.includes('ref=')) {
+    referralUserId = messageText.split('ref=')[1]; // Get the referrer ID from the text
+  }
 
   if (!users[userId]) {
     // If user is new, add them to the file and set initial balance with bonus
     users[userId] = { balance: 20, receivedBonus: true, referrals: 0 };
     writeData(users);
 
-    // Increase the referrer’s referral count if a referral link was used
+    // Increase the referrer's referral count if a referral link was used
     if (referralUserId && users[referralUserId]) {
       users[referralUserId].referrals += 1; // Increment referrals for the referrer
       writeData(users);
@@ -43,14 +47,13 @@ bot.start(async (ctx) => {
     }
 
     // Generate the referral link
-    const referralLink = `https://your-bot-url.com/start?ref=${userId}`; // Replace with your actual bot URL
+    const botUsername = ctx.botInfo.username;
+    const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
 
-    ctx.reply(`Your referral link: ${referralLink}`);
-    
-    ctx.reply('Thank you for joining the channel! You have received a 20 rupees bonus.');
-
-    // Display enhanced earning rules
+    // Combine the referral link with the welcome message
     ctx.reply(
+      `Thank you for joining the channel! You have received a 20 rupees bonus.\n\n` +
+      `Your referral link: ${referralLink}\n\n` +
       '🎉 **Welcome to the Earning Program!** 🎉\n\n' +
       'Here’s how you can earn rewards:\n\n' +
       '🌟 **Referral Bonuses:**\n' +
@@ -63,11 +66,26 @@ bot.start(async (ctx) => {
       '🔥 **Special Bonus:**\n' +
       '➡️ Invite **5 friends** and get an additional **50 rupees** bonus!\n\n' +
       '🎁 **Your earnings are just a referral away!**\n\n' +
-      '📢 **Stay tuned for more updates and exciting offers!**'
+      '📢 **Stay tuned for more updates and exciting offers!**',
+      { parse_mode: 'Markdown' }
     );
   } else if (users[userId].receivedBonus) {
     // If user already received bonus, welcome them back
     ctx.reply('Welcome back! You have already received your 20 rupees bonus.');
+  }
+});
+
+// Command to get the referral link again
+bot.command('referral', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+
+  if (users[userId]) {
+    const botUsername = ctx.botInfo.username;
+    const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
+    ctx.reply(`Your referral link: ${referralLink}`);
+  } else {
+    ctx.reply('Please start the bot first using /start.');
   }
 });
 
