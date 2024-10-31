@@ -1,9 +1,27 @@
 const { Telegraf } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
+const express = require('express');
 
 // Initialize the bot with the token from environment variables
 const bot = new Telegraf(process.env.BOT_TOKEN);
+
+// Express app setup
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Serve static files from the 'webapp' directory
+app.use(express.static('webapp'));
+
+// Start the Express server
+app.listen(PORT, () => {
+  console.log(`Web server is running on port ${PORT}`);
+});
+
+// Web App URL (update this with your actual URL when deploying)
+const webAppUrl = process.env.WEB_APP_URL || `http://localhost:${PORT}`;
+
+// Other variables and functions remain the same
 const channelId = '@ClawEarning'; // Replace with your actual channel ID
 const dataFilePath = path.join(__dirname, 'data.json');
 
@@ -120,7 +138,7 @@ bot.command('quiz', (ctx) => {
             {
               text: 'Start Quiz',
               web_app: {
-                url: 'https://your-web-app-url.com' // Replace with your web app URL
+                url: `${webAppUrl}/index.html`
               }
             }
           ]
