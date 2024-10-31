@@ -7,7 +7,7 @@
 }
 
 body {
-  background: linear-gradient(135deg, #2e2e2e, #1c1c1c);
+  background: linear-gradient(135deg, #333, #222);
   color: #ffffff;
   display: flex;
   justify-content: center;
@@ -19,9 +19,9 @@ body {
   text-align: center;
   padding: 20px;
   max-width: 600px;
-  background: #222;
+  background: #111;
   border-radius: 10px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 /* Balance Section */
@@ -46,9 +46,9 @@ body {
   height: 300px;
   border-radius: 50%;
   overflow: hidden;
-  transform: rotate(0deg);
   transition: transform 4s ease-out;
-  border: 10px solid #333;
+  border: 8px solid #444;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   position: relative;
 }
 
@@ -76,6 +76,7 @@ body {
 .wheel-section:nth-child(7) { transform: rotate(270deg); background-color: #1abc9c; }
 .wheel-section:nth-child(8) { transform: rotate(315deg); background-color: #34495e; }
 
+/* Spin Button */
 #spinButton {
   margin-top: 20px;
   padding: 12px 25px;
