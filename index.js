@@ -1,12 +1,12 @@
 const { Telegraf } = require('telegraf');
 const mongoose = require('mongoose');
 
-
-// Initialize the bot with the token from the environment variable
+// Initialize the bot with the token from environment variables
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const channelId = '@ClawEarning'; // Replace with your actual channel ID
 
 // MongoDB Connection
+console.log('Connecting to MongoDB with URI:', process.env.MONGO_URI); // Debug: Check if URI is correctly loaded
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connected to MongoDB'))
   .catch((error) => console.error('MongoDB connection error:', error));
