@@ -5,24 +5,22 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 
-const MAX_DAILY_ADS = 100; // Maximum ads a user can view daily
-const ADS_PER_REWARD = 15; // Number of ads required for one reward payout
-const REWARD_AMOUNT = 20; // Amount rewarded after viewing ADS_PER_REWARD ads
+const MAX_DAILY_ADS = 100;
+const ADS_PER_REWARD = 15;
+const REWARD_AMOUNT = 20;
+const INITIAL_MIN_PAYOUT = 20; // First withdrawal minimum
+const SUBSEQUENT_MIN_PAYOUT = 100; // Subsequent withdrawals minimum
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve static files from the 'webapp' directory
 app.use(express.static('webapp'));
-
-// Start the Express server
 app.listen(PORT, () => {
   console.log(`Web server is running on port ${PORT}`);
 });
 
-const webAppUrl = `https://claw-earning.onrender.com`; // Updated Web App URL
+const webAppUrl = `https://claw-earning.onrender.com`;
 const channelId = '@ClawEarning'; // Replace with your actual channel ID
 const dataFilePath = path.join(__dirname, 'data.json');
 
@@ -56,7 +54,14 @@ bot.start(async (ctx) => {
   const currentDate = new Date().toDateString();
 
   if (!users[userId]) {
-    users[userId] = { balance: 20, receivedBonus: true, referrals: 0, adsWatched: 0, lastAdDate: currentDate };
+    users[userId] = {
+      balance: 20,
+      receivedBonus: true,
+      referrals: 0,
+      adsWatched: 0,
+      lastAdDate: currentDate,
+      hasWithdrawn: false
+    };
     writeData(users);
 
     const botUsername = ctx.botInfo.username;
@@ -130,37 +135,58 @@ bot.command('balance', (ctx) => {
   }
 });
 
+// Withdrawal command
+bot.command('withdraw', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  const user = users[userId];
+  const minPayout = user.hasWithdrawn ? SUBSEQUENT_MIN_PAYOUT : INITIAL_MIN_PAYOUT;
+
+  if (user.balance < minPayout) {
+    ctx.reply(`Your balance is too low to request a withdrawal. Minimum payout is ${minPayout} rupees.`);
+    return;
+  }
+
+  // Deduct balance and mark first withdrawal as complete
+  user.balance -= minPayout;
+  user.hasWithdrawn = true;
+  writeData(users);
+
+  ctx.reply(`✅ Your withdrawal of ${minPayout} rupees has been processed. Your new balance is ${user.balance} rupees.`);
+});
+
 // Mini App Command - Launch Quiz Web App
 bot.command('quiz', (ctx) => {
-  try {
-    ctx.reply('Click the button below to start the quiz:', {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: 'Start Quiz',
-              web_app: {
-                url: `${webAppUrl}/index.html`
-              }
+  ctx.reply('Click the button below to start the quiz:', {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: 'Start Quiz',
+            web_app: {
+              url: `${webAppUrl}/index.html`
             }
-          ]
+          }
         ]
-      }
-    });
-  } catch (error) {
-    console.error('Error in /quiz command:', error);
-    ctx.reply('An error occurred while starting the quiz. Please try again later.');
-  }
+      ]
+    }
+  });
 });
 
 // Handle data sent from the web app
 bot.on('web_app_data', (ctx) => {
   const userId = ctx.from.id;
-  const data = JSON.parse(ctx.webAppData.data); // The data sent from the web app
+  const data = JSON.parse(ctx.webAppData.data);
   const users = readData();
 
   if (data.score !== undefined && users[userId]) {
-    const bonus = data.score * 5; // Example: 5 rupees per correct answer
+    const bonus = data.score * 5;
     users[userId].balance += bonus;
     writeData(users);
     ctx.reply(`🎉 You earned ${bonus} rupees from the quiz! Your new balance is ${users[userId].balance} rupees.`);
