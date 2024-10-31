@@ -30,29 +30,6 @@ const writeData = (data) => {
   }
 };
 
-// In-memory storage for user quiz states
-const userQuizData = {};
-
-// Quiz questions
-const quizQuestions = [
-  {
-    question: 'What is the capital of France?',
-    options: ['Paris', 'Berlin', 'Madrid', 'Rome'],
-    correctOptionIndex: 0,
-  },
-  {
-    question: 'Which planet is known as the Red Planet?',
-    options: ['Earth', 'Mars', 'Jupiter', 'Venus'],
-    correctOptionIndex: 1,
-  },
-  {
-    question: 'What is the largest ocean on Earth?',
-    options: ['Atlantic Ocean', 'Indian Ocean', 'Pacific Ocean', 'Arctic Ocean'],
-    correctOptionIndex: 2,
-  },
-  // Add more questions as needed
-];
-
 // Bot /start command
 bot.start(async (ctx) => {
   try {
@@ -132,71 +109,47 @@ bot.command('referral', (ctx) => {
   }
 });
 
-// Mini App Command - Start Quiz
+// Mini App Command - Launch Quiz Web App
 bot.command('quiz', (ctx) => {
   try {
-    const userId = ctx.from.id;
-    userQuizData[userId] = { questionIndex: 0, score: 0 };
-    sendQuizQuestion(ctx);
+    // Send a message with a button to open the web app
+    ctx.reply('Click the button below to start the quiz:', {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: 'Start Quiz',
+              web_app: {
+                url: 'https://your-web-app-url.com' // Replace with your web app URL
+              }
+            }
+          ]
+        ]
+      }
+    });
   } catch (error) {
     console.error('Error in /quiz command:', error);
     ctx.reply('An error occurred while starting the quiz. Please try again later.');
   }
 });
 
-// Function to send quiz questions
-function sendQuizQuestion(ctx) {
+// Handle data sent from the web app
+bot.on('web_app_data', (ctx) => {
   try {
     const userId = ctx.from.id;
-    const userData = userQuizData[userId];
-    const questionData = quizQuestions[userData.questionIndex];
+    const data = JSON.parse(ctx.webAppData.data); // The data sent from the web app
+    const users = readData();
 
-    ctx.reply(`Question ${userData.questionIndex + 1}: ${questionData.question}`, {
-      reply_markup: {
-        inline_keyboard: questionData.options.map((option, index) => [
-          { text: option, callback_data: `quiz_${index}` },
-        ]),
-      },
-    });
-  } catch (error) {
-    console.error('Error sending quiz question:', error);
-    ctx.reply('An error occurred while sending the quiz question. Please try again later.');
-  }
-}
-
-// Handle quiz answer
-bot.action(/quiz_\d+/, (ctx) => {
-  try {
-    const userId = ctx.from.id;
-    const userData = userQuizData[userId];
-
-    if (!userData) {
-      ctx.reply('Please start the quiz first by sending /quiz.');
-      return;
-    }
-
-    const selectedOption = parseInt(ctx.match[0].split('_')[1]);
-
-    const questionData = quizQuestions[userData.questionIndex];
-
-    if (selectedOption === questionData.correctOptionIndex) {
-      userData.score += 1;
-      ctx.reply('✅ Correct!');
-    } else {
-      ctx.reply(`❌ Incorrect. The correct answer was "${questionData.options[questionData.correctOptionIndex]}".`);
-    }
-
-    userData.questionIndex += 1;
-
-    if (userData.questionIndex < quizQuestions.length) {
-      sendQuizQuestion(ctx);
-    } else {
-      ctx.reply(`🎉 Quiz finished! Your score: ${userData.score}/${quizQuestions.length}`);
-      delete userQuizData[userId];
+    // Update user's balance based on quiz score
+    if (data.score !== undefined && users[userId]) {
+      const bonus = data.score * 5; // Example: 5 rupees per correct answer
+      users[userId].balance += bonus;
+      writeData(users);
+      ctx.reply(`🎉 You earned ${bonus} rupees from the quiz! Your new balance is ${users[userId].balance} rupees.`);
     }
   } catch (error) {
-    console.error('Error handling quiz answer:', error);
-    ctx.reply('An error occurred while processing your answer. Please try again later.');
+    console.error('Error handling web app data:', error);
+    ctx.reply('An error occurred while processing your quiz results. Please try again later.');
   }
 });
 
