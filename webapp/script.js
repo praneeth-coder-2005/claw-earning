@@ -1,77 +1,94 @@
-// script.js
+document.addEventListener('DOMContentLoaded', () => {
+  const spinButton = document.getElementById('spinButton');
+  const wheel = document.getElementById('wheel');
+  const resultDisplay = document.getElementById('result');
+  const balanceDisplay = document.getElementById('balance');
+  const leaderboardList = document.getElementById('leaderboardList');
 
-// Initialize Telegram Web Apps
-let tg = window.Telegram.WebApp;
-tg.expand(); // Expand the web app to full height
+  let isSpinning = false;
+  const spinRewards = [10, 20, 5, 50, 15, 30, 25, 100]; // Amounts on the spin wheel
 
-// Quiz data
-const quizQuestions = [
-  {
-    question: 'What is the capital of France?',
-    options: ['Paris', 'Berlin', 'Madrid', 'Rome'],
-    correctOptionIndex: 0,
-  },
-  {
-    question: 'Which planet is known as the Red Planet?',
-    options: ['Earth', 'Mars', 'Jupiter', 'Venus'],
-    correctOptionIndex: 1,
-  },
-  {
-    question: 'What is the largest ocean on Earth?',
-    options: ['Atlantic Ocean', 'Indian Ocean', 'Pacific Ocean', 'Arctic Ocean'],
-    correctOptionIndex: 2,
-  },
-  // Add more questions as needed
-];
-
-let currentQuestionIndex = 0;
-let score = 0;
-
-const quizContainer = document.getElementById('quiz-container');
-
-function showQuestion() {
-  const questionData = quizQuestions[currentQuestionIndex];
-  quizContainer.innerHTML = `
-    <div class="question">
-      <h2>Question ${currentQuestionIndex + 1}: ${questionData.question}</h2>
-    </div>
-    <div class="options">
-      ${questionData.options
-        .map(
-          (option, index) => `
-        <button onclick="selectOption(${index})">${option}</button>
-      `
-        )
-        .join('')}
-    </div>
-  `;
-}
-
-function selectOption(selectedIndex) {
-  const questionData = quizQuestions[currentQuestionIndex];
-  if (selectedIndex === questionData.correctOptionIndex) {
-    score++;
-    alert('✅ Correct!');
-  } else {
-    alert(`❌ Incorrect. The correct answer was "${questionData.options[questionData.correctOptionIndex]}".`);
+  // Initialize balance and leaderboard
+  async function initialize() {
+    await fetchBalance();
+    await fetchLeaderboard();
   }
-  currentQuestionIndex++;
-  if (currentQuestionIndex < quizQuestions.length) {
-    showQuestion();
-  } else {
-    showResult();
+
+  // Fetch user balance
+  async function fetchBalance() {
+    try {
+      const response = await fetch('/api/balance');
+      const data = await response.json();
+      balanceDisplay.textContent = data.balance || 0;
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+    }
   }
-}
 
-function showResult() {
-  quizContainer.innerHTML = `
-    <div id="result">
-      🎉 Quiz finished! Your score: ${score}/${quizQuestions.length}
-    </div>
-  `;
-  // Send data back to the bot
-  tg.sendData(JSON.stringify({ score }));
-}
+  // Fetch leaderboard
+  async function fetchLeaderboard() {
+    try {
+      const response = await fetch('/api/leaderboard');
+      const data = await response.json();
+      leaderboardList.innerHTML = '';
+      data.leaderboard.forEach((user, index) => {
+        const listItem = document.createElement('li');
+        listItem.textContent = `${index + 1}. ${user.username || `User ID: ${user.userId}`} - ${user.totalEarnings} rupees`;
+        leaderboardList.appendChild(listItem);
+      });
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+    }
+  }
 
-// Start the quiz
-showQuestion();
+  // Handle spin logic
+  spinButton.addEventListener('click', async () => {
+    if (isSpinning) return;
+
+    isSpinning = true;
+    resultDisplay.textContent = '';
+    spinButton.disabled = true;
+
+    // Randomly select a reward and calculate rotation
+    const rewardIndex = Math.floor(Math.random() * spinRewards.length);
+    const rewardAmount = spinRewards[rewardIndex];
+    const rotation = (360 / spinRewards.length) * rewardIndex + (360 * 5); // 5 full rotations
+
+    // Apply rotation and animate
+    wheel.style.transition = 'transform 4s ease-out';
+    wheel.style.transform = `rotate(${rotation}deg)`;
+
+    // After animation ends
+    setTimeout(async () => {
+      wheel.style.transition = 'none';
+      wheel.style.transform = `rotate(${(360 / spinRewards.length) * rewardIndex}deg)`;
+
+      // Display result and update balance
+      resultDisplay.textContent = `🎉 You won ${rewardAmount} rupees!`;
+      await updateBalance(rewardAmount);
+      await fetchBalance();
+      await fetchLeaderboard();
+
+      isSpinning = false;
+      spinButton.disabled = false;
+    }, 4000);
+  });
+
+  // Update user balance
+  async function updateBalance(amount) {
+    try {
+      await fetch('/api/updateBalance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount }),
+      });
+    } catch (error) {
+      console.error('Error updating balance:', error);
+    }
+  }
+
+  // Initialize the app
+  initialize();
+});
