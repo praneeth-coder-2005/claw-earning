@@ -15,7 +15,6 @@ body {
   height: 100vh;
 }
 
-/* App Container */
 .app-container {
   text-align: center;
   padding: 20px;
@@ -46,10 +45,11 @@ body {
   width: 300px;
   height: 300px;
   border-radius: 50%;
-  border: 5px solid #333;
   overflow: hidden;
   transform: rotate(0deg);
   transition: transform 4s ease-out;
+  border: 10px solid #333;
+  position: relative;
 }
 
 .wheel-section {
@@ -64,19 +64,18 @@ body {
   justify-content: center;
   transform-origin: 100% 100%;
   font-size: 1.2em;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 100%);
 }
 
-/* Wheel Sections */
-.wheel-section:nth-child(1) { transform: rotate(0deg) skewY(-45deg); background-color: #f1c40f; }
-.wheel-section:nth-child(2) { transform: rotate(45deg) skewY(-45deg); background-color: #e67e22; }
-.wheel-section:nth-child(3) { transform: rotate(90deg) skewY(-45deg); background-color: #3498db; }
-.wheel-section:nth-child(4) { transform: rotate(135deg) skewY(-45deg); background-color: #2ecc71; }
-.wheel-section:nth-child(5) { transform: rotate(180deg) skewY(-45deg); background-color: #9b59b6; }
-.wheel-section:nth-child(6) { transform: rotate(225deg) skewY(-45deg); background-color: #e74c3c; }
-.wheel-section:nth-child(7) { transform: rotate(270deg) skewY(-45deg); background-color: #1abc9c; }
-.wheel-section:nth-child(8) { transform: rotate(315deg) skewY(-45deg); background-color: #34495e; }
+.wheel-section:nth-child(1) { transform: rotate(0deg); background-color: #f1c40f; }
+.wheel-section:nth-child(2) { transform: rotate(45deg); background-color: #e67e22; }
+.wheel-section:nth-child(3) { transform: rotate(90deg); background-color: #3498db; }
+.wheel-section:nth-child(4) { transform: rotate(135deg); background-color: #2ecc71; }
+.wheel-section:nth-child(5) { transform: rotate(180deg); background-color: #9b59b6; }
+.wheel-section:nth-child(6) { transform: rotate(225deg); background-color: #e74c3c; }
+.wheel-section:nth-child(7) { transform: rotate(270deg); background-color: #1abc9c; }
+.wheel-section:nth-child(8) { transform: rotate(315deg); background-color: #34495e; }
 
-/* Spin Button */
 #spinButton {
   margin-top: 20px;
   padding: 12px 25px;
