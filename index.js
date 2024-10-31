@@ -61,6 +61,8 @@ bot.start(async (ctx) => {
       receivedBonus: true,
       referrals: 0,
       adsWatched: 0,
+      totalEarnings: 20, // Initial bonus
+      withdrawals: 0,
       lastAdDate: currentDate,
       hasWithdrawn: false,
       lastBonusDate: null // Track last daily bonus claim
@@ -80,7 +82,8 @@ bot.start(async (ctx) => {
       `/withdraw - Request a payout\n` +
       `/daily_bonus - Claim your daily login bonus\n` +
       `/quiz - Start a quiz to earn additional rewards\n` +
-      `/support - Access the support options for help\n\n` +
+      `/support - Access the support options for help\n` +
+      `/stats - View your statistics\n\n` +
       `Start earning by watching ads and referring friends!`,
       { parse_mode: 'Markdown' }
     );
@@ -94,7 +97,8 @@ bot.start(async (ctx) => {
       `/withdraw - Request a payout\n` +
       `/daily_bonus - Claim your daily login bonus\n` +
       `/quiz - Start a quiz to earn additional rewards\n` +
-      `/support - Access the support options for help\n\n` +
+      `/support - Access the support options for help\n` +
+      `/stats - View your statistics\n\n` +
       `Let’s continue earning!`
     );
   }
@@ -138,6 +142,7 @@ bot.command('watch_ad', (ctx) => {
   users[userId].adsWatched += 1;
   if (users[userId].adsWatched % ADS_PER_REWARD === 0) {
     users[userId].balance += REWARD_AMOUNT;
+    users[userId].totalEarnings += REWARD_AMOUNT;
     ctx.reply(`🎉 You've watched ${users[userId].adsWatched} ads and earned ${REWARD_AMOUNT} rupees!`);
   } else {
     ctx.reply(`You've watched ${users[userId].adsWatched} ads today.`);
@@ -177,6 +182,8 @@ bot.command('withdraw', (ctx) => {
   }
 
   user.balance -= minPayout;
+  user.totalEarnings -= minPayout;
+  user.withdrawals += 1;
   user.hasWithdrawn = true;
   writeData(users);
 
@@ -200,10 +207,32 @@ bot.command('daily_bonus', (ctx) => {
     ctx.reply('You have already claimed your daily bonus today. Come back tomorrow!');
   } else {
     user.balance += DAILY_BONUS_AMOUNT;
+    user.totalEarnings += DAILY_BONUS_AMOUNT;
     user.lastBonusDate = today;
     writeData(users);
     ctx.reply(`🎉 You received your daily bonus of ${DAILY_BONUS_AMOUNT} rupees! Your new balance is ${user.balance} rupees.`);
   }
+});
+
+// Command to view user statistics
+bot.command('stats', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  const user = users[userId];
+  ctx.reply(
+    `📊 Here are your statistics:\n\n` +
+    `Total Referrals: ${user.referrals}\n` +
+    `Total Ads Watched: ${user.adsWatched}\n` +
+    `Total Earnings: ${user.totalEarnings} rupees\n` +
+    `Total Withdrawals: ${user.withdrawals}\n\n` +
+    `Keep up the great work!`
+  );
 });
 
 // Mini App Command - Launch Quiz Web App
@@ -233,6 +262,7 @@ bot.on('web_app_data', (ctx) => {
   if (data.score !== undefined && users[userId]) {
     const bonus = data.score * 5;
     users[userId].balance += bonus;
+    users[userId].totalEarnings += bonus;
     writeData(users);
     ctx.reply(`🎉 You earned ${bonus} rupees from the quiz! Your new balance is ${users[userId].balance} rupees.`);
   }
@@ -260,8 +290,6 @@ bot.action('support_balance', (ctx) => {
 bot.action('support_withdrawal', (ctx) => {
   ctx.reply('To request a withdrawal, ensure your balance meets the minimum payout requirement. Use /withdraw to initiate a payout request.');
 });
-
-// Continue with the support responses
 
 bot.action('support_referral', (ctx) => {
   ctx.reply('Use your unique referral link (available via /referral) to invite friends. Each successful referral earns you a bonus!');
