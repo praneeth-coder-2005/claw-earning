@@ -83,7 +83,8 @@ bot.start(async (ctx) => {
       `/daily_bonus - Claim your daily login bonus\n` +
       `/quiz - Start a quiz to earn additional rewards\n` +
       `/support - Access the support options for help\n` +
-      `/stats - View your statistics\n\n` +
+      `/stats - View your statistics\n` +
+      `/leaderboard - See the top earners\n\n` +
       `Start earning by watching ads and referring friends!`,
       { parse_mode: 'Markdown' }
     );
@@ -98,7 +99,8 @@ bot.start(async (ctx) => {
       `/daily_bonus - Claim your daily login bonus\n` +
       `/quiz - Start a quiz to earn additional rewards\n` +
       `/support - Access the support options for help\n` +
-      `/stats - View your statistics\n\n` +
+      `/stats - View your statistics\n` +
+      `/leaderboard - See the top earners\n\n` +
       `Let’s continue earning!`
     );
   }
@@ -212,6 +214,21 @@ bot.command('daily_bonus', (ctx) => {
     writeData(users);
     ctx.reply(`🎉 You received your daily bonus of ${DAILY_BONUS_AMOUNT} rupees! Your new balance is ${user.balance} rupees.`);
   }
+});
+
+// Leaderboard Command
+bot.command('leaderboard', (ctx) => {
+  const users = readData();
+  const sortedUsers = Object.entries(users)
+    .sort(([, a], [, b]) => b.totalEarnings - a.totalEarnings)
+    .slice(0, 10);
+
+  let leaderboard = '🏆 Top Earners 🏆\n\n';
+  sortedUsers.forEach(([userId, user], index) => {
+    leaderboard += `${index + 1}. ${user.username || `User ID: ${userId}`} - ${user.totalEarnings} rupees\n`;
+  });
+
+  ctx.reply(leaderboard || 'No users on the leaderboard yet. Start earning to see your name here!');
 });
 
 // Command to view user statistics
