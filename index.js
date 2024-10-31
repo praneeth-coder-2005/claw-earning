@@ -1,3 +1,5 @@
+// index.js
+
 const { Telegraf } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
@@ -18,8 +20,8 @@ app.listen(PORT, () => {
   console.log(`Web server is running on port ${PORT}`);
 });
 
-// Web App URL (update this with your actual URL when deploying)
-const webAppUrl = process.env.WEB_APP_URL || `https://claw-earning.onrender.com`;
+// Web App URL
+const webAppUrl = process.env.WEB_APP_URL || `https://claw-earning.onrender.com/`;
 
 // Other variables and functions remain the same
 const channelId = '@ClawEarning'; // Replace with your actual channel ID
