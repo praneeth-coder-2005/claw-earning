@@ -33,11 +33,22 @@ bot.start(async (ctx) => {
     writeData(users);
     ctx.reply('Thank you for joining the channel! You have received a 20 rupees bonus.');
 
-    // Display earning rules
-    ctx.reply('Here’s how you can earn:\n' +
-              '- Every successful referral lets you watch 15 ads, worth 20 rupees.\n' +
-              '- You can watch up to 100 ads per day.\n' +
-              'Come back tomorrow for any remaining ads!');
+    // Display enhanced earning rules
+    ctx.reply(
+      '🎉 **Welcome to the Earning Program!** 🎉\n\n' +
+      'Here’s how you can earn rewards:\n\n' +
+      '🌟 **Referral Bonuses:**\n' +
+      '➡️ For every successful referral, you earn **20 rupees**!\n' +
+      '➡️ Each referral gives you the opportunity to watch **15 ads**.\n' +
+      '➡️ The more friends you invite, the more you earn!\n\n' +
+      '📅 **Daily Ad Viewing Limit:**\n' +
+      '➡️ You can watch up to **100 ads** per day!\n' +
+      '➡️ Come back tomorrow to continue watching any remaining ads and maximize your earnings!\n\n' +
+      '🔥 **Special Bonus:**\n' +
+      '➡️ Invite **5 friends** and get an additional **50 rupees** bonus!\n\n' +
+      '🎁 **Your earnings are just a referral away!**\n\n' +
+      '📢 **Stay tuned for more updates and exciting offers!**'
+    );
   } else if (users[userId].receivedBonus) {
     // If user already received bonus, welcome them back
     ctx.reply('Welcome back! You have already received your 20 rupees bonus.');
