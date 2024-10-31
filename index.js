@@ -1,6 +1,6 @@
 const { Telegraf } = require('telegraf');
 const mongoose = require('mongoose');
-require('dotenv').config(); // To load environment variables from a .env file
+
 
 // Initialize the bot with the token from the environment variable
 const bot = new Telegraf(process.env.BOT_TOKEN);
