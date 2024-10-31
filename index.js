@@ -27,10 +27,21 @@ bot.start(async (ctx) => {
 
   const users = readData(); // Read current users from file
 
+  // Check for referral parameter in the context
+  const referralUserId = ctx.message.text.split('ref=')[1]; // Get the referrer ID from the text
+
   if (!users[userId]) {
     // If user is new, add them to the file and set initial balance with bonus
-    users[userId] = { balance: 20, receivedBonus: true };
+    users[userId] = { balance: 20, receivedBonus: true, referrals: 0 };
     writeData(users);
+
+    // Increase the referrer’s referral count if a referral link was used
+    if (referralUserId && users[referralUserId]) {
+      users[referralUserId].referrals += 1; // Increment referrals for the referrer
+      writeData(users);
+      ctx.reply(`Thank you for joining through your referral link! Your referrer now has ${users[referralUserId].referrals} successful referrals.`);
+    }
+
     ctx.reply('Thank you for joining the channel! You have received a 20 rupees bonus.');
 
     // Display enhanced earning rules
