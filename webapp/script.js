@@ -69,7 +69,7 @@ function showResult() {
       🎉 Quiz finished! Your score: ${score}/${quizQuestions.length}
     </div>
   `;
-  // Optionally send data back to the bot
+  // Send data back to the bot
   tg.sendData(JSON.stringify({ score }));
 }
 
