@@ -1,3 +1,4 @@
+/* Reset */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -5,16 +6,39 @@
   font-family: Arial, sans-serif;
 }
 
+body {
+  background: linear-gradient(135deg, #2e2e2e, #1c1c1c);
+  color: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+/* App Container */
 .app-container {
   text-align: center;
   padding: 20px;
+  max-width: 600px;
+  background: #222;
+  border-radius: 10px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-h1, h2 {
-  color: #333;
+/* Balance Section */
+.balance-section {
+  padding: 15px;
+  font-size: 1.2em;
+  color: #f39c12;
+}
+
+/* Wheel Section */
+.wheel-section {
+  margin-top: 20px;
 }
 
 .wheel-container {
+  position: relative;
   margin: 20px 0;
 }
 
@@ -23,7 +47,6 @@ h1, h2 {
   height: 300px;
   border-radius: 50%;
   border: 5px solid #333;
-  position: relative;
   overflow: hidden;
   transform: rotate(0deg);
   transition: transform 4s ease-out;
@@ -33,16 +56,18 @@ h1, h2 {
   position: absolute;
   width: 50%;
   height: 50%;
-  background-color: #f1c40f;
+  background-color: #e74c3c;
   color: #fff;
   font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
   transform-origin: 100% 100%;
+  font-size: 1.2em;
 }
 
-.wheel-section:nth-child(1) { transform: rotate(0deg) skewY(-45deg); }
+/* Wheel Sections */
+.wheel-section:nth-child(1) { transform: rotate(0deg) skewY(-45deg); background-color: #f1c40f; }
 .wheel-section:nth-child(2) { transform: rotate(45deg) skewY(-45deg); background-color: #e67e22; }
 .wheel-section:nth-child(3) { transform: rotate(90deg) skewY(-45deg); background-color: #3498db; }
 .wheel-section:nth-child(4) { transform: rotate(135deg) skewY(-45deg); background-color: #2ecc71; }
@@ -51,23 +76,33 @@ h1, h2 {
 .wheel-section:nth-child(7) { transform: rotate(270deg) skewY(-45deg); background-color: #1abc9c; }
 .wheel-section:nth-child(8) { transform: rotate(315deg) skewY(-45deg); background-color: #34495e; }
 
+/* Spin Button */
 #spinButton {
   margin-top: 20px;
-  padding: 10px 20px;
-  font-size: 18px;
-  color: white;
-  background-color: #333;
+  padding: 12px 25px;
+  font-size: 1em;
+  color: #fff;
+  background: linear-gradient(45deg, #f39c12, #e67e22);
   border: none;
   border-radius: 5px;
   cursor: pointer;
+  transition: background 0.3s;
 }
 
-#spinButton:disabled {
-  background-color: #888;
+#spinButton:hover {
+  background: linear-gradient(45deg, #e67e22, #f39c12);
 }
 
-.leaderboard {
+#result {
+  margin-top: 15px;
+  font-size: 1.1em;
+  color: #2ecc71;
+}
+
+/* Leaderboard Section */
+.leaderboard-section {
   margin-top: 40px;
+  color: #ecf0f1;
 }
 
 .leaderboard ul {
@@ -76,6 +111,9 @@ h1, h2 {
 }
 
 .leaderboard li {
-  font-size: 18px;
+  font-size: 1em;
+  padding: 8px;
+  background: #333;
   margin: 5px 0;
-  }
+  border-radius: 4px;
+}
