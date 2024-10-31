@@ -37,7 +37,7 @@ bot.action('check_joined', async (ctx) => {
 
 // Set the bot to use webhooks
 app.use(bot.webhookCallback('/webhook'));
-bot.telegram.setWebhook(`https://YOUR_VERCEL_APP_URL.vercel.app/webhook`);
+bot.telegram.setWebhook(`https://claw-earning.vercel.app/webhook`);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
