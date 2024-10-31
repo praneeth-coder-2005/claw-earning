@@ -42,6 +42,11 @@ bot.start(async (ctx) => {
       ctx.reply(`Thank you for joining through your referral link! Your referrer now has ${users[referralUserId].referrals} successful referrals.`);
     }
 
+    // Generate the referral link
+    const referralLink = `https://your-bot-url.com/start?ref=${userId}`; // Replace with your actual bot URL
+
+    ctx.reply(`Your referral link: ${referralLink}`);
+    
     ctx.reply('Thank you for joining the channel! You have received a 20 rupees bonus.');
 
     // Display enhanced earning rules
