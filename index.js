@@ -10,6 +10,7 @@ const ADS_PER_REWARD = 15;
 const REWARD_AMOUNT = 20;
 const INITIAL_MIN_PAYOUT = 20;
 const SUBSEQUENT_MIN_PAYOUT = 100;
+const DAILY_BONUS_AMOUNT = 5; // Daily login bonus
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const app = express();
@@ -21,7 +22,7 @@ app.listen(PORT, () => {
 });
 
 const webAppUrl = `https://claw-earning.onrender.com`;
-const channelId = '@ClawEarning'; // Your official channel ID
+const channelId = '@ClawEarning'; // Replace with your official channel ID
 const adminUserId = 'YOUR_ADMIN_USER_ID'; // Replace with your Telegram user ID for forwarding support requests
 const dataFilePath = path.join(__dirname, 'data.json');
 
@@ -48,7 +49,7 @@ const writeData = (data) => {
   }
 };
 
-// Bot /start command with referral link
+// Bot /start command with command list
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
   const users = readData();
@@ -61,7 +62,8 @@ bot.start(async (ctx) => {
       referrals: 0,
       adsWatched: 0,
       lastAdDate: currentDate,
-      hasWithdrawn: false
+      hasWithdrawn: false,
+      lastBonusDate: null // Track last daily bonus claim
     };
     writeData(users);
 
@@ -70,11 +72,31 @@ bot.start(async (ctx) => {
     ctx.reply(
       `Welcome! You have received a 20 rupees bonus.\n\n` +
       `Your referral link: ${referralLink}\n\n` +
+      `Here are the available commands:\n\n` +
+      `/start - Start or restart the bot\n` +
+      `/referral - Get your referral link to invite friends\n` +
+      `/watch_ad - Watch ads to earn rewards\n` +
+      `/balance - Check your current balance\n` +
+      `/withdraw - Request a payout\n` +
+      `/daily_bonus - Claim your daily login bonus\n` +
+      `/quiz - Start a quiz to earn additional rewards\n` +
+      `/support - Access the support options for help\n\n` +
       `Start earning by watching ads and referring friends!`,
       { parse_mode: 'Markdown' }
     );
   } else {
-    ctx.reply('Welcome back! You have already received your 20 rupees bonus.');
+    ctx.reply(
+      'Welcome back! Here are the available commands:\n\n' +
+      `/start - Start or restart the bot\n` +
+      `/referral - Get your referral link to invite friends\n` +
+      `/watch_ad - Watch ads to earn rewards\n` +
+      `/balance - Check your current balance\n` +
+      `/withdraw - Request a payout\n` +
+      `/daily_bonus - Claim your daily login bonus\n` +
+      `/quiz - Start a quiz to earn additional rewards\n` +
+      `/support - Access the support options for help\n\n` +
+      `Let’s continue earning!`
+    );
   }
 });
 
@@ -154,12 +176,34 @@ bot.command('withdraw', (ctx) => {
     return;
   }
 
-  // Deduct balance and mark first withdrawal as complete
   user.balance -= minPayout;
   user.hasWithdrawn = true;
   writeData(users);
 
   ctx.reply(`✅ Your withdrawal of ${minPayout} rupees has been processed. Your new balance is ${user.balance} rupees.`);
+});
+
+// Daily Bonus Command
+bot.command('daily_bonus', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const today = new Date().toDateString();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  const user = users[userId];
+
+  if (user.lastBonusDate === today) {
+    ctx.reply('You have already claimed your daily bonus today. Come back tomorrow!');
+  } else {
+    user.balance += DAILY_BONUS_AMOUNT;
+    user.lastBonusDate = today;
+    writeData(users);
+    ctx.reply(`🎉 You received your daily bonus of ${DAILY_BONUS_AMOUNT} rupees! Your new balance is ${user.balance} rupees.`);
+  }
 });
 
 // Mini App Command - Launch Quiz Web App
@@ -217,6 +261,8 @@ bot.action('support_withdrawal', (ctx) => {
   ctx.reply('To request a withdrawal, ensure your balance meets the minimum payout requirement. Use /withdraw to initiate a payout request.');
 });
 
+// Continue with the support responses
+
 bot.action('support_referral', (ctx) => {
   ctx.reply('Use your unique referral link (available via /referral) to invite friends. Each successful referral earns you a bonus!');
 });
@@ -226,10 +272,8 @@ bot.action('support_contact', (ctx) => {
   const userId = ctx.from.id;
   const username = ctx.from.username || 'User';
 
-  // Notify the user
   ctx.reply('An admin will contact you shortly for further assistance.');
 
-  // Forward the message to the admin
   bot.telegram.sendMessage(
     adminUserId,
     `Support request from ${username} (User ID: ${userId}):\n\nThe user requested additional support.`
@@ -242,13 +286,16 @@ bot.catch((err, ctx) => {
   ctx.reply('An unexpected error occurred. Please try again later.');
 });
 
+// Handling uncaught errors to prevent crashes
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection:', reason);
 });
+
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
 });
 
+// Launch the bot
 bot.launch().then(() => {
   console.log('Bot is running...');
 });
