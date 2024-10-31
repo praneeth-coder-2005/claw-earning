@@ -4,7 +4,7 @@ const express = require('express');
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const app = express();
 const PORT = process.env.PORT || 3000;
-const channelId = 'ClawEarning'; // Replace with your actual channel ID
+const channelId = '@ClawEarning'; // Replace with your actual channel ID
 
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
