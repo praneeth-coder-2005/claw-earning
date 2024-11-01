@@ -10,7 +10,10 @@ const ADS_PER_REWARD = 15;
 const REWARD_AMOUNT = 20;
 const INITIAL_MIN_PAYOUT = 20;
 const SUBSEQUENT_MIN_PAYOUT = 100;
-const DAILY_BONUS_AMOUNT = 5; // Daily login bonus
+const DAILY_BONUS_AMOUNT = 5;
+const DAILY_FREE_SPINS = 1;
+const SPIN_COST = 10;
+const SPIN_REWARD_VALUES = [10, 20, 5, 50, 15, 30, 25, 100];
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const app = express();
@@ -22,8 +25,8 @@ app.listen(PORT, () => {
 });
 
 const webAppUrl = `https://claw-earning.onrender.com`;
-const channelId = '@ClawEarning'; // Replace with your official channel ID
-const adminUserId = 'YOUR_ADMIN_USER_ID'; // Replace with your Telegram user ID for forwarding support requests
+const channelId = '@ClawEarning';
+const adminUserId = 'YOUR_ADMIN_USER_ID';
 const dataFilePath = path.join(__dirname, 'data.json');
 
 // Function to read data from JSON file
@@ -49,6 +52,23 @@ const writeData = (data) => {
   }
 };
 
+// Function to get a random reward for the spin
+const getRandomReward = () => {
+  const index = Math.floor(Math.random() * SPIN_REWARD_VALUES.length);
+  return SPIN_REWARD_VALUES[index];
+};
+
+// Reset daily spins for each user
+function resetDailySpins(users) {
+  const currentDate = new Date().toDateString();
+  for (let userId in users) {
+    if (users[userId].lastSpinDate !== currentDate) {
+      users[userId].dailySpins = 0;
+      users[userId].lastSpinDate = currentDate;
+    }
+  }
+}
+
 // Bot /start command with command list
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
@@ -61,11 +81,14 @@ bot.start(async (ctx) => {
       receivedBonus: true,
       referrals: 0,
       adsWatched: 0,
-      totalEarnings: 20, // Initial bonus
+      totalEarnings: 20,
       withdrawals: 0,
       lastAdDate: currentDate,
       hasWithdrawn: false,
-      lastBonusDate: null // Track last daily bonus claim
+      lastBonusDate: null,
+      dailySpins: 0,
+      extraSpins: 0,
+      lastSpinDate: null,
     };
     writeData(users);
 
@@ -76,13 +99,15 @@ bot.start(async (ctx) => {
       `Your referral link: ${referralLink}\n\n` +
       `Here are the available commands:\n\n` +
       `/start - Start or restart the bot\n` +
-      `/referral - Get your referral link to invite friends\n` +
+      `/referral - Get your referral link\n` +
       `/watch_ad - Watch ads to earn rewards\n` +
+      `/spin - Spin the wheel (limited daily spins)\n` +
+      `/buy_spin - Purchase an extra spin for ${SPIN_COST} rupees\n` +
       `/balance - Check your current balance\n` +
       `/withdraw - Request a payout\n` +
       `/daily_bonus - Claim your daily login bonus\n` +
-      `/quiz - Start a quiz to earn additional rewards\n` +
-      `/support - Access the support options for help\n` +
+      `/quiz - Start a quiz for extra rewards\n` +
+      `/support - Access support options\n` +
       `/stats - View your statistics\n` +
       `/leaderboard - See the top earners\n\n` +
       `Start earning by watching ads and referring friends!`,
@@ -92,13 +117,15 @@ bot.start(async (ctx) => {
     ctx.reply(
       'Welcome back! Here are the available commands:\n\n' +
       `/start - Start or restart the bot\n` +
-      `/referral - Get your referral link to invite friends\n` +
+      `/referral - Get your referral link\n` +
       `/watch_ad - Watch ads to earn rewards\n` +
+      `/spin - Spin the wheel (limited daily spins)\n` +
+      `/buy_spin - Purchase an extra spin for ${SPIN_COST} rupees\n` +
       `/balance - Check your current balance\n` +
       `/withdraw - Request a payout\n` +
       `/daily_bonus - Claim your daily login bonus\n` +
-      `/quiz - Start a quiz to earn additional rewards\n` +
-      `/support - Access the support options for help\n` +
+      `/quiz - Start a quiz for extra rewards\n` +
+      `/support - Access support options\n` +
       `/stats - View your statistics\n` +
       `/leaderboard - See the top earners\n\n` +
       `Let’s continue earning!`
@@ -106,19 +133,51 @@ bot.start(async (ctx) => {
   }
 });
 
-// Referral link command
-bot.command('referral', (ctx) => {
+// Spin command with daily limit and extra spins handling
+bot.command('spin', (ctx) => {
   const userId = ctx.from.id;
   const users = readData();
+  const user = users[userId];
 
-  if (users[userId]) {
-    const botUsername = ctx.botInfo.username;
-    const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
-    ctx.reply(`Your referral link: ${referralLink}`);
-  } else {
-    ctx.reply('Please start the bot first using /start.');
+  if (user.dailySpins >= DAILY_FREE_SPINS + user.extraSpins) {
+    return ctx.reply("You've used up your daily free spins! Use /buy_spin to purchase more spins.");
   }
+
+  if (user.dailySpins >= DAILY_FREE_SPINS) {
+    user.extraSpins -= 1;
+  }
+
+  user.dailySpins += 1;
+  const rewardAmount = getRandomReward();
+  user.balance += rewardAmount;
+  writeData(users);
+
+  ctx.reply(`🎉 You won ${rewardAmount} rupees! Your new balance is ${user.balance} rupees.`);
 });
+
+// Command to buy extra spins
+bot.command('buy_spin', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const user = users[userId];
+
+  if (user.balance < SPIN_COST) {
+    return ctx.reply("You don't have enough balance to buy an extra spin.");
+  }
+
+  user.balance -= SPIN_COST;
+  user.extraSpins += 1;
+  writeData(users);
+
+  ctx.reply(`You bought an extra spin! You now have ${user.extraSpins} extra spins.`);
+});
+
+// Schedule daily reset of spins
+setInterval(() => {
+  const users = readData();
+  resetDailySpins(users);
+  writeData(users);
+}, 86400000);
 
 // Command to simulate watching an ad
 bot.command('watch_ad', (ctx) => {
@@ -190,6 +249,20 @@ bot.command('withdraw', (ctx) => {
   writeData(users);
 
   ctx.reply(`✅ Your withdrawal of ${minPayout} rupees has been processed. Your new balance is ${user.balance} rupees.`);
+});
+
+// Referral link command
+bot.command('referral', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+
+  if (users[userId]) {
+    const botUsername = ctx.botInfo.username;
+    const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
+    ctx.reply(`Your referral link: ${referralLink}`);
+  } else {
+    ctx.reply('Please start the bot first using /start.');
+  }
 });
 
 // Daily Bonus Command
