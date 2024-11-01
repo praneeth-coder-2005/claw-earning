@@ -10,7 +10,10 @@ const ADS_PER_REWARD = 15;
 const REWARD_AMOUNT = 20;
 const INITIAL_MIN_PAYOUT = 20;
 const SUBSEQUENT_MIN_PAYOUT = 100;
-const DAILY_BONUS_AMOUNT = 5; // Daily login bonus
+const DAILY_BONUS_AMOUNT = 5;
+const SPIN_COST = 10;
+const SPIN_REWARD_VALUES = [10, 20, 5, 50, 15, 30, 25, 100];
+const TIER_LEVELS = { Bronze: 0, Silver: 500, Gold: 1000, Platinum: 2000 };
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const app = express();
@@ -49,73 +52,68 @@ const writeData = (data) => {
   }
 };
 
-// Bot /start command with command list
-bot.start(async (ctx) => {
-  const userId = ctx.from.id;
-  const users = readData();
-  const currentDate = new Date().toDateString();
+// Helper function to get a random reward for spinning
+const getRandomReward = () => {
+  const index = Math.floor(Math.random() * SPIN_REWARD_VALUES.length);
+  return SPIN_REWARD_VALUES[index];
+};
 
+// Initialize user data if not present
+const initializeUser = (userId) => {
+  const users = readData();
   if (!users[userId]) {
     users[userId] = {
       balance: 20,
-      receivedBonus: true,
       referrals: 0,
       adsWatched: 0,
-      totalEarnings: 20, // Initial bonus
+      totalEarnings: 20,
       withdrawals: 0,
-      lastAdDate: currentDate,
+      lastAdDate: new Date().toDateString(),
       hasWithdrawn: false,
-      lastBonusDate: null, // Track last daily bonus claim
-      streakDays: 0 // Track consecutive daily logins
+      lastBonusDate: null,
+      dailySpins: 0,
+      extraSpins: 0,
+      tier: 'Bronze',
+      streakDays: 0,
+      achievements: []
     };
     writeData(users);
-
-    const botUsername = ctx.botInfo.username;
-    const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
-    ctx.reply(
-      `Welcome! You have received a 20 rupees bonus.\n\n` +
-      `Your referral link: ${referralLink}\n\n` +
-      `Here are the available commands:\n\n` +
-      `/start - Start or restart the bot\n` +
-      `/referral - Get your referral link\n` +
-      `/watch_ad - Watch ads to earn rewards\n` +
-      `/balance - Check your current balance\n` +
-      `/withdraw - Request a payout\n` +
-      `/daily_bonus - Claim your daily login bonus\n` +
-      `/streak_bonus - Claim your streak bonus for consecutive logins\n` +
-      `/quiz - Start a quiz to earn rewards\n` +
-      `/support - Access support options\n` +
-      `/stats - View your statistics\n` +
-      `/leaderboard - See the top earners\n` +
-      `/referral_leaderboard - See top referrals\n\n` +
-      `Start earning by watching ads and referring friends!`,
-      { parse_mode: 'Markdown' }
-    );
-  } else {
-    ctx.reply(
-      'Welcome back! Here are the available commands:\n\n' +
-      `/start - Start or restart the bot\n` +
-      `/referral - Get your referral link\n` +
-      `/watch_ad - Watch ads to earn rewards\n` +
-      `/balance - Check your current balance\n` +
-      `/withdraw - Request a payout\n` +
-      `/daily_bonus - Claim your daily login bonus\n` +
-      `/streak_bonus - Claim your streak bonus for consecutive logins\n` +
-      `/quiz - Start a quiz to earn rewards\n` +
-      `/support - Access support options\n` +
-      `/stats - View your statistics\n` +
-      `/leaderboard - See the top earners\n` +
-      `/referral_leaderboard - See top referrals\n\n` +
-      `Let’s continue earning!`
-    );
   }
+};
+
+// Bot /start command with command list
+bot.start(async (ctx) => {
+  const userId = ctx.from.id;
+  initializeUser(userId);
+
+  const botUsername = ctx.botInfo.username;
+  const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
+  ctx.reply(
+    `Welcome! You have received a 20 rupees bonus.\n\n` +
+    `Your referral link: ${referralLink}\n\n` +
+    `Commands:\n` +
+    `/start - Restart the bot\n` +
+    `/referral - Get referral link\n` +
+    `/watch_ad - Earn rewards by watching ads\n` +
+    `/balance - Check balance\n` +
+    `/withdraw - Request payout\n` +
+    `/daily_bonus - Claim daily bonus\n` +
+    `/streak_bonus - Claim streak bonus\n` +
+    `/quiz - Start quiz\n` +
+    `/support - Support options\n` +
+    `/stats - View stats\n` +
+    `/leaderboard - Top earners\n` +
+    `/referral_leaderboard - Top referrers\n` +
+    `/tier - Check your tier\n` +
+    `/spin - Spin the wheel\n` +
+    `/buy_spin - Buy extra spins`
+  );
 });
 
 // Referral link command
 bot.command('referral', (ctx) => {
   const userId = ctx.from.id;
   const users = readData();
-
   if (users[userId]) {
     const botUsername = ctx.botInfo.username;
     const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
@@ -125,7 +123,7 @@ bot.command('referral', (ctx) => {
   }
 });
 
-// Command to simulate watching an ad
+// Watch Ad command
 bot.command('watch_ad', (ctx) => {
   const userId = ctx.from.id;
   const users = readData();
@@ -158,11 +156,10 @@ bot.command('watch_ad', (ctx) => {
   writeData(users);
 });
 
-// Command to check balance
+// Balance command
 bot.command('balance', (ctx) => {
   const userId = ctx.from.id;
   const users = readData();
-
   if (users[userId]) {
     ctx.reply(`Your current balance is ${users[userId].balance} rupees.`);
   } else {
@@ -170,8 +167,8 @@ bot.command('balance', (ctx) => {
   }
 });
 
-// Withdrawal command
-bot.command('withdraw', (ctx) => {
+// Tier Command
+bot.command('tier', (ctx) => {
   const userId = ctx.from.id;
   const users = readData();
 
@@ -181,20 +178,91 @@ bot.command('withdraw', (ctx) => {
   }
 
   const user = users[userId];
-  const minPayout = user.hasWithdrawn ? SUBSEQUENT_MIN_PAYOUT : INITIAL_MIN_PAYOUT;
+  let currentTier = user.tier;
+  let nextTier = null;
+  let progressMessage = '';
 
-  if (user.balance < minPayout) {
-    ctx.reply(`Your balance is too low to request a withdrawal. Minimum payout is ${minPayout} rupees.`);
+  if (user.totalEarnings >= TIER_LEVELS.Platinum) {
+    currentTier = 'Platinum';
+    progressMessage = 'You are at the highest tier, Platinum!';
+  } else if (user.totalEarnings >= TIER_LEVELS.Gold) {
+    currentTier = 'Gold';
+    nextTier = 'Platinum';
+  } else if (user.totalEarnings >= TIER_LEVELS.Silver) {
+    currentTier = 'Silver';
+    nextTier = 'Gold';
+  } else {
+    currentTier = 'Bronze';
+    nextTier = 'Silver';
+  }
+
+  if (nextTier) {
+    const nextTierRequirement = TIER_LEVELS[nextTier];
+    const difference = nextTierRequirement - user.totalEarnings;
+    progressMessage = `Earn ${difference} more rupees to reach ${nextTier} tier.`;
+  }
+
+  ctx.reply(
+    `Your Current Tier: ${currentTier}\n${progressMessage}`
+  );
+});
+
+// Spin Command
+bot.command('spin', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const currentDate = new Date().toDateString();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
     return;
   }
 
-  user.balance -= minPayout;
-  user.totalEarnings -= minPayout;
-  user.withdrawals += 1;
-  user.hasWithdrawn = true;
+  const user = users[userId];
+  
+  if (user.lastSpinDate !== currentDate) {
+    user.dailySpins = 0;
+    user.lastSpinDate = currentDate;
+  }
+
+  if (user.dailySpins >= 1 && user.extraSpins <= 0) {
+    ctx.reply(`You've used all your free spins. Buy more with /buy_spin.`);
+    return;
+  }
+
+  let reward = getRandomReward();
+  user.balance += reward;
+  user.totalEarnings += reward;
+  user.dailySpins += 1;
+
+  if (user.dailySpins > 1) user.extraSpins -= 1;
+
+  writeData(users);
+  ctx.reply(`🎉 You spun the wheel and won ${reward} rupees! Current balance: ${user.balance} rupees.`);
+});
+
+// Buy Spin Command
+bot.command('buy_spin', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  const user = users[userId];
+
+  if (user.balance < SPIN_COST) {
+    ctx.reply(`Insufficient balance. You need ${SPIN_COST} rupees to buy an extra spin.`);
+    return;
+  }
+
+  user.balance -= SPIN_COST;
+  user.extraSpins += 1;
   writeData(users);
 
-  ctx.reply(`✅ Your withdrawal of ${minPayout} rupees has been processed. Your new balance is ${user.balance} rupees.`);
+  ctx.reply(`You purchased an extra spin! You now have ${user.extraSpins} extra spins available.`);
 });
 
 // Daily Bonus Command
@@ -236,40 +304,6 @@ bot.command('leaderboard', (ctx) => {
   ctx.reply(leaderboard || 'No users on the leaderboard yet. Start earning to see your name here!');
 });
 
-// Streak Bonus Command
-bot.command('streak_bonus', (ctx) => {
-  const userId = ctx.from.id;
-  const users = readData();
-  const today = new Date().toDateString();
-
-  if (!users[userId]) {
-    ctx.reply('Please start the bot first using /start.');
-    return;
-  }
-
-  const user = users[userId];
-
-  if (user.lastBonusDate === today) {
-    ctx.reply('You have already claimed your streak bonus today. Come back tomorrow!');
-    return;
-  }
-
-  // Check if the user has logged in for consecutive days
-  if (user.lastBonusDate === new Date(Date.now() - 86400000).toDateString()) {
-    user.streakDays += 1;
-  } else {
-    user.streakDays = 1;
-  }
-
-  const streakBonus = user.streakDays * DAILY_BONUS_AMOUNT;
-  user.balance += streakBonus;
-  user.totalEarnings += streakBonus;
-  user.lastBonusDate = today;
-  writeData(users);
-
-  ctx.reply(`🎉 You received a streak bonus of ${streakBonus} rupees for logging in ${user.streakDays} day(s) in a row! Your new balance is ${user.balance} rupees.`);
-});
-
 // Referral Leaderboard Command
 bot.command('referral_leaderboard', (ctx) => {
   const users = readData();
@@ -283,39 +317,6 @@ bot.command('referral_leaderboard', (ctx) => {
   });
 
   ctx.reply(leaderboard || 'No users on the referral leaderboard yet. Start inviting friends to see your name here!');
-});
-
-// Mini App Command - Launch Quiz Web App
-bot.command('quiz', (ctx) => {
-  ctx.reply('Click the button below to start the quiz:', {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: 'Start Quiz',
-            web_app: {
-              url: `${webAppUrl}/index.html`
-            }
-          }
-        ]
-      ]
-    }
-  });
-});
-
-// Handle data sent from the web app
-bot.on('web_app_data', (ctx) => {
-  const userId = ctx.from.id;
-  const data = JSON.parse(ctx.webAppData.data);
-  const users = readData();
-
-  if (data.score !== undefined && users[userId]) {
-    const bonus = data.score * 5;
-    users[userId].balance += bonus;
-    users[userId].totalEarnings += bonus;
-    writeData(users);
-    ctx.reply(`🎉 You earned ${bonus} rupees from the quiz! Your new balance is ${users[userId].balance} rupees.`);
-  }
 });
 
 // Support Command for Automated Support Options
@@ -360,7 +361,7 @@ bot.action('support_contact', (ctx) => {
 
 // Error handling
 bot.catch((err, ctx) => {
-  console.error(`Error: ${ctx.updateType}`, err);
+  console.error(`Error for ${ctx.updateType}:`, err);
   ctx.reply('An unexpected error occurred. Please try again later.');
 });
 
