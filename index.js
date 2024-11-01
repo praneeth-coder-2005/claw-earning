@@ -207,7 +207,8 @@ bot.command('tier', (ctx) => {
   }
 
   ctx.reply(
-    `🌟 Your Current Tier: ${currentTier}\n` + `${progressMessage}`
+    `🌟 Your Current Tier: ${currentTier}\n` +
+    `${progressMessage}`
   );
 });
 
@@ -284,33 +285,61 @@ bot.command('stats', (ctx) => {
   );
 });
 
-// Daily Bonus Command
-bot.command('daily_bonus', (ctx) => {
+// /support Command
+bot.command('support', (ctx) => {
+  ctx.reply('Welcome to Support! Choose an option below for assistance:', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'Balance Inquiry', callback_data: 'support_balance' }],
+        [{ text: 'Withdrawal Help', callback_data: 'support_withdrawal' }],
+        [{ text: 'Referral Questions', callback_data: 'support_referral' }],
+        [{ text: 'Contact Support', callback_data: 'support_contact' }]
+      ]
+    }
+  });
+});
+
+// Command /balance
+bot.command('balance', (ctx) => {
   const userId = ctx.from.id;
   const users = readData();
-  const today = new Date().toDateString();
+  if (users[userId]) {
+    ctx.reply(`Your current balance is ${users[userId].balance} rupees.`);
+  } else {
+    ctx.reply('Please start the bot first using /start.');
+  }
+});
 
-  if (!users[userId]) {
+// /withdraw Command
+bot.command('withdraw', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const user = users[userId];
+
+  if (!user) {
     ctx.reply('Please start the bot first using /start.');
     return;
   }
 
-  const user = users[userId];
+  const minPayout = user.hasWithdrawn ? SUBSEQUENT_MIN_PAYOUT : INITIAL_MIN_PAYOUT;
 
-  if (user.lastBonusDate === today) {
-    ctx.reply('You have already claimed your daily bonus today. Come back tomorrow!');
-  } else {
-    user.balance += DAILY_BONUS_AMOUNT;
-    user.totalEarnings += DAILY_BONUS_AMOUNT;
-    user.lastBonusDate = today;
-    writeData(users);
-    ctx.reply(`🎉 You received your daily bonus of ${DAILY_BONUS_AMOUNT} rupees! Your new balance is ${user.balance} rupees.`);
+  if (user.balance < minPayout) {
+    ctx.reply(`Your balance is too low to request a withdrawal. Minimum payout is ${minPayout} rupees.`);
+    return;
   }
+
+  user.balance -= minPayout;
+  user.totalEarnings -= minPayout;
+  user.withdrawals += 1;
+  user.hasWithdrawn = true;
+  writeData(users);
+
+  ctx.reply(`✅ Your withdrawal of ${minPayout} rupees has been processed. Your new balance is ${user.balance} rupees.`);
 });
 
 // Error handling
 bot.catch((err, ctx) => {
-  console.error(`Error: ${ctx.updateType}`, err);
+  console.error(`Error for ${ctx.updateType}:`, err);
   ctx.reply('An unexpected error occurred. Please try again later.');
 });
 
@@ -327,3 +356,7 @@ process.on('uncaughtException', (error) => {
 bot.launch().then(() => {
   console.log('Bot is running...');
 });
+
+// Clean up before exiting
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
