@@ -32,8 +32,11 @@ app.listen(PORT, () => {
 
 const webAppUrl = `https://claw-earning.onrender.com`;
 const channelId = '@ClawEarning';
-const adminUserId = 'YOUR_ADMIN_USER_ID';
+const adminUserIds = ['@Mass_Raja_1024', '@clawoffice'];
 const dataFilePath = path.join(__dirname, 'data.json');
+
+// Function to check if the user is an admin
+const isAdmin = (username) => adminUserIds.includes(username);
 
 // Function to read data from JSON file
 const readData = () => {
@@ -58,15 +61,11 @@ const writeData = (data) => {
   }
 };
 
-// Helper function to get a random reward for spinning
-const getRandomReward = () => {
-  const index = Math.floor(Math.random() * SPIN_REWARD_VALUES.length);
-  return SPIN_REWARD_VALUES[index];
-};
-
-// Initialize user data if not present
-const initializeUser = (userId) => {
+// Bot /start command with command list
+bot.start(async (ctx) => {
+  const userId = ctx.from.id;
   const users = readData();
+  
   if (!users[userId]) {
     users[userId] = {
       balance: 20,
@@ -87,38 +86,8 @@ const initializeUser = (userId) => {
     };
     writeData(users);
   }
-};
 
-// Check and unlock achievements
-const unlockAchievements = (userId) => {
-  const users = readData();
-  const user = users[userId];
-  const unlockedAchievements = [];
-
-  for (const [achievement, requirement] of Object.entries(ACHIEVEMENT_REQUIREMENTS)) {
-    if (
-      !user.achievements.includes(achievement) &&
-      user[requirement.type] >= requirement.count
-    ) {
-      user.achievements.push(achievement);
-      unlockedAchievements.push(achievement);
-    }
-  }
-
-  if (unlockedAchievements.length > 0) {
-    writeData(users);
-  }
-
-  return unlockedAchievements;
-};
-
-// Bot /start command with command list
-bot.start(async (ctx) => {
-  const userId = ctx.from.id;
-  initializeUser(userId);
-
-  const botUsername = ctx.botInfo.username;
-  const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
+  const referralLink = `https://t.me/${ctx.botInfo.username}?start=ref=${userId}`;
   ctx.reply(
     `Welcome! You have received a 20 rupees bonus.\n\n` +
     `Your referral link: ${referralLink}\n\n` +
@@ -144,117 +113,106 @@ bot.start(async (ctx) => {
   );
 });
 
-// Profile Command
-bot.command('profile', (ctx) => {
-  const userId = ctx.from.id;
+// Admin Commands
+
+// User Stats Command
+bot.command('user_stats', (ctx) => {
+  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
+
+  const args = ctx.message.text.split(" ");
+  const userId = args[1];
   const users = readData();
 
-  if (!users[userId]) {
-    ctx.reply('Please start the bot first using /start.');
-    return;
+  if (users[userId]) {
+    const user = users[userId];
+    ctx.reply(
+      `User ID: ${userId}\n` +
+      `Balance: ${user.balance}\n` +
+      `Total Earnings: ${user.totalEarnings}\n` +
+      `Referrals: ${user.referrals}\n` +
+      `Ads Watched: ${user.adsWatched}\n` +
+      `Withdrawals: ${user.withdrawals}\n` +
+      `Tier: ${user.tier}\n` +
+      `Achievements: ${user.achievements.join(", ")}`
+    );
+  } else {
+    ctx.reply("User not found.");
   }
-
-  const user = users[userId];
-  ctx.reply(
-    `👤 Your Profile\n\n` +
-    `Tier: ${user.tier || 'Bronze'}\n` +
-    `Balance: ${user.balance} rupees\n` +
-    `Total Earnings: ${user.totalEarnings} rupees\n` +
-    `Referrals: ${user.referrals}\n` +
-    `Ads Watched: ${user.adsWatched}\n` +
-    `Achievements: ${user.achievements.length > 0 ? user.achievements.join(', ') : 'No achievements yet'}`
-  );
 });
 
-// Set UPI ID Command
-bot.command('set_upi', (ctx) => {
-  const userId = ctx.from.id;
-  ctx.reply('Please enter your UPI ID:');
-  bot.on('text', (ctx) => {
-    const upiId = ctx.message.text.trim();
-    const users = readData();
-    if (upiId) {
-      users[userId].upiId = upiId;
+// Pending Withdrawals Command
+bot.command('pending_withdrawals', (ctx) => {
+  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
+
+  const users = readData();
+  let pendingList = "Pending Withdrawals:\n\n";
+  let hasPending = false;
+
+  for (const [userId, user] of Object.entries(users)) {
+    if (user.balance >= INITIAL_MIN_PAYOUT && !user.hasWithdrawn) {
+      pendingList += `User ID: ${userId}, Balance: ${user.balance}\n`;
+      hasPending = true;
+    }
+  }
+
+  ctx.reply(hasPending ? pendingList : "No pending withdrawals.");
+});
+
+// Approve Withdrawal Command
+bot.command('approve_withdrawal', (ctx) => {
+  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
+
+  const args = ctx.message.text.split(" ");
+  const userId = args[1];
+  const users = readData();
+
+  if (users[userId]) {
+    const user = users[userId];
+    const minPayout = user.hasWithdrawn ? SUBSEQUENT_MIN_PAYOUT : INITIAL_MIN_PAYOUT;
+
+    if (user.balance >= minPayout) {
+      user.balance -= minPayout;
+      user.withdrawals += 1;
+      user.hasWithdrawn = true;
       writeData(users);
-      ctx.reply(`UPI ID successfully set to: ${upiId}`);
+      ctx.reply(`Approved withdrawal of ${minPayout} rupees for User ID: ${userId}.`);
     } else {
-      ctx.reply('Invalid UPI ID. Please try again.');
+      ctx.reply("User does not meet the minimum balance for withdrawal.");
     }
-  });
+  } else {
+    ctx.reply("User not found.");
+  }
 });
 
-// Withdrawal command with UPI check
-bot.command('withdraw', (ctx) => {
-  const userId = ctx.from.id;
-  const users = readData();
+// Reject Withdrawal Command
+bot.command('reject_withdrawal', (ctx) => {
+  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
 
-  if (!users[userId]) {
-    ctx.reply('Please start the bot first using /start.');
-    return;
+  const args = ctx.message.text.split(" ");
+  const userId = args[1];
+
+  if (userId) {
+    ctx.reply(`Rejected withdrawal request for User ID: ${userId}.`);
+  } else {
+    ctx.reply("Please specify a user ID to reject.");
   }
-
-  const user = users[userId];
-  const minPayout = user.hasWithdrawn ? SUBSEQUENT_MIN_PAYOUT : INITIAL_MIN_PAYOUT;
-
-  if (!user.upiId) {
-    ctx.reply('Please set your UPI ID first using /set_upi.');
-    return;
-  }
-
-  if (user.balance < minPayout) {
-    ctx.reply(`Your balance is too low to request a withdrawal. Minimum payout is ${minPayout} rupees.`);
-    return;
-  }
-
-  user.balance -= minPayout;
-  user.totalEarnings -= minPayout;
-  user.withdrawals += 1;
-  user.hasWithdrawn = true;
-  writeData(users);
-
-  ctx.reply(`✅ Your withdrawal of ${minPayout} rupees has been processed to UPI ID: ${user.upiId}. Your new balance is ${user.balance} rupees.`);
 });
 
-// Notifications for daily reset
-const notifyUsers = () => {
-  const users = readData();
-  const today = new Date().toDateString();
+// Send Announcement Command
+bot.command('send_announcement', (ctx) => {
+  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
 
-  Object.entries(users).forEach(([userId, user]) => {
-    if (user.lastNotificationDate !== today) {
-      bot.telegram.sendMessage(
-        userId,
-        'Daily limits have reset! You can now watch ads, claim bonuses, and more.'
-      );
-      user.lastNotificationDate = today;
+  const announcement = ctx.message.text.replace('/send_announcement', '').trim();
+  if (announcement) {
+    const users = readData();
+    for (const userId of Object.keys(users)) {
+      bot.telegram.sendMessage(userId, announcement);
     }
-  });
-  writeData(users);
-};
-
-// Schedule the notification at midnight daily
-setInterval(notifyUsers, 24 * 60 * 60 * 1000);
-
-// Basic Anti-Spam/Anti-Fraud Protection
-bot.use((ctx, next) => {
-  const userId = ctx.from.id;
-  const users = readData();
-
-  if (!users[userId]) initializeUser(userId);
-
-  const user = users[userId];
-  if (user.ipAddress && user.ipAddress === ctx.ip) {
-    ctx.reply('Multiple accounts on the same IP are not allowed.');
-    return;
+    ctx.reply("Announcement sent to all users.");
+  } else {
+    ctx.reply("Please provide a message to send as an announcement.");
   }
-
-  user.ipAddress = ctx.ip;
-  writeData(users);
-  return next();
 });
-
-// Additional commands like /watch_ad, /balance, /referral, /daily_bonus, etc., would follow here
-// Please refer to previous code snippets for full implementations of these commands
 
 // Error handling
 bot.catch((err, ctx) => {
@@ -262,8 +220,7 @@ bot.catch((err, ctx) => {
   ctx.reply('An unexpected error occurred. Please try again later.');
 });
 
-// Handling uncaught errors to prevent crashes
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
 });
 
