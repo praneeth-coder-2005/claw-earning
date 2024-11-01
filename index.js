@@ -138,6 +138,7 @@ bot.start(async (ctx) => {
       `Your referral link: ${referralLink}\n\n` +
       `Here are the available commands:\n\n` +
       `/start - Start or restart the bot\n` +
+      `/profile - View your profile\n` +
       `/referral - Get your referral link\n` +
       `/watch_ad - Watch ads to earn rewards\n` +
       `/spin - Spin the wheel (limited daily spins)\n` +
@@ -159,6 +160,7 @@ bot.start(async (ctx) => {
     ctx.reply(
       'Welcome back! Here are the available commands:\n\n' +
       `/start - Start or restart the bot\n` +
+      `/profile - View your profile\n` +
       `/referral - Get your referral link\n` +
       `/watch_ad - Watch ads to earn rewards\n` +
       `/spin - Spin the wheel (limited daily spins)\n` +
@@ -176,6 +178,28 @@ bot.start(async (ctx) => {
       `Let’s continue earning!`
     );
   }
+});
+
+// Profile Command
+bot.command('profile', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  const user = users[userId];
+  ctx.reply(
+    `👤 **Your Profile**\n\n` +
+    `Tier Level: ${user.tier}\n` +
+    `Balance: ${user.balance} rupees\n` +
+    `Total Referrals: ${user.referrals}\n` +
+    `Total Ads Watched: ${user.adsWatched}\n` +
+    `Total Earnings: ${user.totalEarnings} rupees\n` +
+    `Achievements: ${user.achievements.length > 0 ? user.achievements.join(', ') : 'No achievements yet'}\n\n`
+  );
 });
 
 // Tier Command
@@ -212,8 +236,66 @@ bot.command('tier', (ctx) => {
   );
 });
 
-// Streak Bonus Command
-bot.command('streak_bonus', (ctx) => {
+// Milestone Rewards for Ads Watched, Referrals, and Earnings
+function checkMilestoneRewards(user, ctx) {
+  const milestones = [
+    { count: 50, reward: 10, description: 'Watched 50 ads' },
+    { count: 5, reward: 20, description: 'Referred 5 friends' },
+    { count: 500, reward: 50, description: 'Earned 500 rupees' },
+  ];
+
+  milestones.forEach(milestone => {
+    if (
+      (milestone.description.includes('ads') && user.adsWatched >= milestone.count) ||
+      (milestone.description.includes('friends') && user.referrals >= milestone.count) ||
+      (milestone.description.includes('rupees') && user.totalEarnings >= milestone.count)
+    ) {
+      if (!user.achievements.includes(milestone.description)) {
+        user.balance += milestone.reward;
+        user.achievements.push(milestone.description);
+        writeData(readData());
+        ctx.reply(`🎉 Milestone Achieved: ${milestone.description}! You earned ${milestone.reward} rupees as a reward.`);
+      }
+    }
+  });
+}
+
+// /watch_ad Command with Milestone Rewards
+bot.command('watch_ad', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const currentDate = new Date().toDateString();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  if (users[userId].lastAdDate !== currentDate) {
+    users[userId].adsWatched = 0;
+    users[userId].lastAdDate = currentDate;
+  }
+
+  if (users[userId].adsWatched >= MAX_DAILY_ADS) {
+    ctx.reply('You have reached your daily ad viewing limit. Come back tomorrow!');
+    return;
+  }
+
+  users[userId].adsWatched += 1;
+  if (users[userId].adsWatched % ADS_PER_REWARD === 0) {
+    users[userId].balance += REWARD_AMOUNT;
+    users[userId].totalEarnings += REWARD_AMOUNT;
+    ctx.reply(`🎉 You've watched ${users[userId].adsWatched} ads and earned ${REWARD_AMOUNT} rupees!`);
+    checkMilestoneRewards(users[userId], ctx);
+  } else {
+    ctx.reply(`You've watched ${users[userId].adsWatched} ads today.`);
+  }
+
+  writeData(users);
+});
+
+// /daily_bonus Command
+bot.command('daily_bonus', (ctx) => {
   const userId = ctx.from.id;
   const users = readData();
   const today = new Date().toDateString();
@@ -224,30 +306,19 @@ bot.command('streak_bonus', (ctx) => {
   }
 
   const user = users[userId];
-
-  // If the user has already claimed the streak bonus today
   if (user.lastBonusDate === today) {
-    ctx.reply('You have already claimed your streak bonus today. Come back tomorrow!');
-    return;
-  }
-
-  // Check if the user has logged in for consecutive days
-  if (user.lastBonusDate === new Date(Date.now() - 86400000).toDateString()) {
-    user.streakDays += 1;
+    ctx.reply('You have already claimed your daily bonus today. Come back tomorrow!');
   } else {
-    user.streakDays = 1;
+    user.balance += DAILY_BONUS_AMOUNT;
+    user.totalEarnings += DAILY_BONUS_AMOUNT;
+    user.lastBonusDate = today;
+    writeData(users);
+    ctx.reply(`🎉 You received your daily bonus of ${DAILY_BONUS_AMOUNT} rupees! Your new balance is ${user.balance} rupees.`);
+    checkMilestoneRewards(user, ctx);
   }
-
-  const streakBonus = user.streakDays * DAILY_BONUS_AMOUNT;
-  user.balance += streakBonus;
-  user.totalEarnings += streakBonus;
-  user.lastBonusDate = today;
-  writeData(users);
-
-  ctx.reply(`🎉 You received a streak bonus of ${streakBonus} rupees for logging in ${user.streakDays} day(s) in a row! Your new balance is ${user.balance} rupees.`);
 });
 
-// Referral Leaderboard Command
+// /referral_leaderboard Command
 bot.command('referral_leaderboard', (ctx) => {
   const users = readData();
   const sortedUsers = Object.entries(users)
@@ -262,88 +333,12 @@ bot.command('referral_leaderboard', (ctx) => {
   ctx.reply(leaderboard || 'No users on the referral leaderboard yet. Start inviting friends to see your name here!');
 });
 
-// Command to view user statistics, including achievements and tier level
-bot.command('stats', (ctx) => {
-  const userId = ctx.from.id;
-  const users = readData();
-
-  if (!users[userId]) {
-    ctx.reply('Please start the bot first using /start.');
-    return;
-  }
-
-  const user = users[userId];
-  ctx.reply(
-    `📊 Here are your statistics:\n\n` +
-    `Total Referrals: ${user.referrals}\n` +
-    `Total Ads Watched: ${user.adsWatched}\n` +
-    `Total Earnings: ${user.totalEarnings} rupees\n` +
-    `Total Withdrawals: ${user.withdrawals}\n` +
-    `Tier Level: ${user.tier}\n` +
-    `Achievements: ${user.achievements.length > 0 ? user.achievements.join(', ') : 'No achievements yet'}\n\n` +
-    `Keep up the great work!`
-  );
-});
-
-// /support Command
-bot.command('support', (ctx) => {
-  ctx.reply('Welcome to Support! Choose an option below for assistance:', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Balance Inquiry', callback_data: 'support_balance' }],
-        [{ text: 'Withdrawal Help', callback_data: 'support_withdrawal' }],
-        [{ text: 'Referral Questions', callback_data: 'support_referral' }],
-        [{ text: 'Contact Support', callback_data: 'support_contact' }]
-      ]
-    }
-  });
-});
-
-// Command /balance
-bot.command('balance', (ctx) => {
-  const userId = ctx.from.id;
-  const users = readData();
-  if (users[userId]) {
-    ctx.reply(`Your current balance is ${users[userId].balance} rupees.`);
-  } else {
-    ctx.reply('Please start the bot first using /start.');
-  }
-});
-
-// /withdraw Command
-bot.command('withdraw', (ctx) => {
-  const userId = ctx.from.id;
-  const users = readData();
-  const user = users[userId];
-
-  if (!user) {
-    ctx.reply('Please start the bot first using /start.');
-    return;
-  }
-
-  const minPayout = user.hasWithdrawn ? SUBSEQUENT_MIN_PAYOUT : INITIAL_MIN_PAYOUT;
-
-  if (user.balance < minPayout) {
-    ctx.reply(`Your balance is too low to request a withdrawal. Minimum payout is ${minPayout} rupees.`);
-    return;
-  }
-
-  user.balance -= minPayout;
-  user.totalEarnings -= minPayout;
-  user.withdrawals += 1;
-  user.hasWithdrawn = true;
-  writeData(users);
-
-  ctx.reply(`✅ Your withdrawal of ${minPayout} rupees has been processed. Your new balance is ${user.balance} rupees.`);
-});
-
-// Error handling
+// Error handling and bot launch
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}:`, err);
   ctx.reply('An unexpected error occurred. Please try again later.');
 });
 
-// Handling uncaught errors to prevent crashes
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection:', reason);
 });
@@ -352,11 +347,9 @@ process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
 });
 
-// Launch the bot
 bot.launch().then(() => {
   console.log('Bot is running...');
 });
 
-// Clean up before exiting
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
