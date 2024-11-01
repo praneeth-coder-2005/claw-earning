@@ -254,7 +254,7 @@ bot.command('watch_ad', (ctx) => {
   }
 
   users[userId].adsWatched += 1;
-  if (users[userId].adsWatched % ADS_PER_REWARD === 0) {
+  if (users[userId].adsWatched% ADS_PER_REWARD === 0) {
     users[userId].balance += REWARD_AMOUNT;
     users[userId].totalEarnings += REWARD_AMOUNT;
     ctx.reply(`🎉 You've watched ${users[userId].adsWatched} ads and earned ${REWARD_AMOUNT} rupees!`);
