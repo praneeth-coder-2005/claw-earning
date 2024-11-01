@@ -29,6 +29,20 @@ const channelId = '@ClawEarning';
 const adminUserId = 'YOUR_ADMIN_USER_ID';
 const dataFilePath = path.join(__dirname, 'data.json');
 
+// Tier Levels and Achievements Setup
+const TIER_LEVELS = {
+  Bronze: 0,
+  Silver: 500,
+  Gold: 1000,
+  Platinum: 2000
+};
+
+const ACHIEVEMENTS = {
+  AdsWatched: { count: 100, description: "Watched 100 ads" },
+  Referrals: { count: 10, description: "10 successful referrals" },
+  Earnings: { count: 1000, description: "Earned a total of 1000 rupees" }
+};
+
 // Function to read data from JSON file
 const readData = () => {
   try {
@@ -69,6 +83,28 @@ function resetDailySpins(users) {
   }
 }
 
+// Function to update user tier based on earnings
+function updateUserTier(user) {
+  const earnings = user.totalEarnings;
+  if (earnings >= TIER_LEVELS.Platinum) user.tier = 'Platinum';
+  else if (earnings >= TIER_LEVELS.Gold) user.tier = 'Gold';
+  else if (earnings >= TIER_LEVELS.Silver) user.tier = 'Silver';
+  else user.tier = 'Bronze';
+}
+
+// Function to update achievements based on milestones
+function updateAchievements(user) {
+  if (user.adsWatched >= ACHIEVEMENTS.AdsWatched.count && !user.achievements.includes(ACHIEVEMENTS.AdsWatched.description)) {
+    user.achievements.push(ACHIEVEMENTS.AdsWatched.description);
+  }
+  if (user.referrals >= ACHIEVEMENTS.Referrals.count && !user.achievements.includes(ACHIEVEMENTS.Referrals.description)) {
+    user.achievements.push(ACHIEVEMENTS.Referrals.description);
+  }
+  if (user.totalEarnings >= ACHIEVEMENTS.Earnings.count && !user.achievements.includes(ACHIEVEMENTS.Earnings.description)) {
+    user.achievements.push(ACHIEVEMENTS.Earnings.description);
+  }
+}
+
 // Bot /start command with command list
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
@@ -89,6 +125,8 @@ bot.start(async (ctx) => {
       dailySpins: 0,
       extraSpins: 0,
       lastSpinDate: null,
+      tier: 'Bronze', // Default tier
+      achievements: [] // List of achievements
     };
     writeData(users);
 
@@ -150,9 +188,12 @@ bot.command('spin', (ctx) => {
   user.dailySpins += 1;
   const rewardAmount = getRandomReward();
   user.balance += rewardAmount;
+  user.totalEarnings += rewardAmount;
+  updateUserTier(user);
+  updateAchievements(user);
   writeData(users);
 
-  ctx.reply(`🎉 You won ${rewardAmount} rupees! Your new balance is ${user.balance} rupees.`);
+  ctx.reply(`🎉 You won ${rewardAmount} rupees! Your new balance is ${user.balance} rupees. You are now a ${user.tier} member.`);
 });
 
 // Command to buy extra spins
@@ -172,60 +213,8 @@ bot.command('buy_spin', (ctx) => {
   ctx.reply(`You bought an extra spin! You now have ${user.extraSpins} extra spins.`);
 });
 
-// Schedule daily reset of spins
-setInterval(() => {
-  const users = readData();
-  resetDailySpins(users);
-  writeData(users);
-}, 86400000);
-
-// Command to simulate watching an ad
-bot.command('watch_ad', (ctx) => {
-  const userId = ctx.from.id;
-  const users = readData();
-  const currentDate = new Date().toDateString();
-
-  if (!users[userId]) {
-    ctx.reply('Please start the bot first using /start.');
-    return;
-  }
-
-  if (users[userId].lastAdDate !== currentDate) {
-    users[userId].adsWatched = 0;
-    users[userId].lastAdDate = currentDate;
-  }
-
-  if (users[userId].adsWatched >= MAX_DAILY_ADS) {
-    ctx.reply('You have reached your daily ad viewing limit. Come back tomorrow!');
-    return;
-  }
-
-  users[userId].adsWatched += 1;
-  if (users[userId].adsWatched % ADS_PER_REWARD === 0) {
-    users[userId].balance += REWARD_AMOUNT;
-    users[userId].totalEarnings += REWARD_AMOUNT;
-    ctx.reply(`🎉 You've watched ${users[userId].adsWatched} ads and earned ${REWARD_AMOUNT} rupees!`);
-  } else {
-    ctx.reply(`You've watched ${users[userId].adsWatched} ads today.`);
-  }
-
-  writeData(users);
-});
-
-// Command to check balance
-bot.command('balance', (ctx) => {
-  const userId = ctx.from.id;
-  const users = readData();
-
-  if (users[userId]) {
-    ctx.reply(`Your current balance is ${users[userId].balance} rupees.`);
-  } else {
-    ctx.reply('Please start the bot first using /start.');
-  }
-});
-
-// Withdrawal command
-bot.command('withdraw', (ctx) => {
+// Command to view user statistics, including achievements and tier level
+bot.command('stats', (ctx) => {
   const userId = ctx.from.id;
   const users = readData();
 
@@ -234,21 +223,17 @@ bot.command('withdraw', (ctx) => {
     return;
   }
 
-  const user = users[userId];
-  const minPayout = user.hasWithdrawn ? SUBSEQUENT_MIN_PAYOUT : INITIAL_MIN_PAYOUT;
-
-  if (user.balance < minPayout) {
-    ctx.reply(`Your balance is too low to request a withdrawal. Minimum payout is ${minPayout} rupees.`);
-    return;
-  }
-
-  user.balance -= minPayout;
-  user.totalEarnings -= minPayout;
-  user.withdrawals += 1;
-  user.hasWithdrawn = true;
-  writeData(users);
-
-  ctx.reply(`✅ Your withdrawal of ${minPayout} rupees has been processed. Your new balance is ${user.balance} rupees.`);
+const user = users[userId];
+  ctx.reply(
+    `📊 Here are your statistics:\n\n` +
+    `Total Referrals: ${user.referrals}\n` +
+    `Total Ads Watched: ${user.adsWatched}\n` +
+    `Total Earnings: ${user.totalEarnings} rupees\n` +
+    `Total Withdrawals: ${user.withdrawals}\n` +
+    `Tier Level: ${user.tier}\n` +
+    `Achievements: ${user.achievements.length > 0 ? user.achievements.join(', ') : 'No achievements yet'}\n\n` +
+    `Keep up the great work!`
+  );
 });
 
 // Referral link command
@@ -284,6 +269,7 @@ bot.command('daily_bonus', (ctx) => {
     user.balance += DAILY_BONUS_AMOUNT;
     user.totalEarnings += DAILY_BONUS_AMOUNT;
     user.lastBonusDate = today;
+    updateUserTier(user);
     writeData(users);
     ctx.reply(`🎉 You received your daily bonus of ${DAILY_BONUS_AMOUNT} rupees! Your new balance is ${user.balance} rupees.`);
   }
@@ -298,31 +284,10 @@ bot.command('leaderboard', (ctx) => {
 
   let leaderboard = '🏆 Top Earners 🏆\n\n';
   sortedUsers.forEach(([userId, user], index) => {
-    leaderboard += `${index + 1}. ${user.username || `User ID: ${userId}`} - ${user.totalEarnings} rupees\n`;
+    leaderboard += `${index + 1}. ${user.username || `User ID: ${userId}`} - ${user.totalEarnings} rupees, Tier: ${user.tier}\n`;
   });
 
   ctx.reply(leaderboard || 'No users on the leaderboard yet. Start earning to see your name here!');
-});
-
-// Command to view user statistics
-bot.command('stats', (ctx) => {
-  const userId = ctx.from.id;
-  const users = readData();
-
-  if (!users[userId]) {
-    ctx.reply('Please start the bot first using /start.');
-    return;
-  }
-
-  const user = users[userId];
-  ctx.reply(
-    `📊 Here are your statistics:\n\n` +
-    `Total Referrals: ${user.referrals}\n` +
-    `Total Ads Watched: ${user.adsWatched}\n` +
-    `Total Earnings: ${user.totalEarnings} rupees\n` +
-    `Total Withdrawals: ${user.withdrawals}\n\n` +
-    `Keep up the great work!`
-  );
 });
 
 // Mini App Command - Launch Quiz Web App
@@ -351,10 +316,13 @@ bot.on('web_app_data', (ctx) => {
 
   if (data.score !== undefined && users[userId]) {
     const bonus = data.score * 5;
-    users[userId].balance += bonus;
-    users[userId].totalEarnings += bonus;
+    const user = users[userId];
+    user.balance += bonus;
+    user.totalEarnings += bonus;
+    updateUserTier(user);
+    updateAchievements(user);
     writeData(users);
-    ctx.reply(`🎉 You earned ${bonus} rupees from the quiz! Your new balance is ${users[userId].balance} rupees.`);
+    ctx.reply(`🎉 You earned ${bonus} rupees from the quiz! Your new balance is ${user.balance} rupees.`);
   }
 });
 
