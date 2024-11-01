@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spin & Win</title>
+  <title>Earn by Watching Ads</title>
+  <script src="https://sad.adsgram.ai/js/sad.min.js"></script> <!-- AdsGram SDK -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,29 +14,10 @@
       <h2>Your Balance: <span id="balance">0</span> rupees</h2>
     </div>
 
-    <!-- Spin Wheel Section -->
-    <div class="wheel-section">
-      <h1>🎉 Spin & Win 🎉</h1>
-      <div class="wheel-container">
-        <div class="wheel" id="wheel">
-          <div class="wheel-section">10</div>
-          <div class="wheel-section">20</div>
-          <div class="wheel-section">5</div>
-          <div class="wheel-section">50</div>
-          <div class="wheel-section">15</div>
-          <div class="wheel-section">30</div>
-          <div class="wheel-section">25</div>
-          <div class="wheel-section">100</div>
-        </div>
-        <button id="spinButton">Spin Now</button>
-        <div id="result"></div>
-      </div>
-    </div>
-
-    <!-- Leaderboard Section -->
-    <div class="leaderboard-section">
-      <h2>🏆 Top Earners 🏆</h2>
-      <ul id="leaderboardList"></ul>
+    <!-- Ads Viewing Section -->
+    <div class="ads-section">
+      <button id="watchAdButton">Watch Ad & Earn</button>
+      <div id="result"></div>
     </div>
   </div>
 
