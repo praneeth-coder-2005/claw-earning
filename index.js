@@ -93,6 +93,7 @@ bot.start(async (ctx) => {
     `Your referral link: ${referralLink}\n\n` +
     `Commands:\n` +
     `/start - Restart the bot\n` +
+    `/profile - View profile\n` +
     `/referral - Get referral link\n` +
     `/watch_ad - Earn rewards by watching ads\n` +
     `/balance - Check balance\n` +
@@ -107,6 +108,28 @@ bot.start(async (ctx) => {
     `/tier - Check your tier\n` +
     `/spin - Spin the wheel\n` +
     `/buy_spin - Buy extra spins`
+  );
+});
+
+// Profile Command
+bot.command('profile', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  const user = users[userId];
+  ctx.reply(
+    `👤 Your Profile\n\n` +
+    `Tier: ${user.tier || 'Bronze'}\n` +
+    `Balance: ${user.balance} rupees\n` +
+    `Total Earnings: ${user.totalEarnings} rupees\n` +
+    `Referrals: ${user.referrals}\n` +
+    `Ads Watched: ${user.adsWatched}\n` +
+    `Achievements: ${user.achievements.length > 0 ? user.achievements.join(', ') : 'No achievements yet'}`
   );
 });
 
