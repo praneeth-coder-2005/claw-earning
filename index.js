@@ -11,9 +11,15 @@ const REWARD_AMOUNT = 20;
 const INITIAL_MIN_PAYOUT = 20;
 const SUBSEQUENT_MIN_PAYOUT = 100;
 const DAILY_BONUS_AMOUNT = 5;
+const STREAK_BONUS_AMOUNT = 10;
 const SPIN_COST = 10;
 const SPIN_REWARD_VALUES = [10, 20, 5, 50, 15, 30, 25, 100];
 const TIER_LEVELS = { Bronze: 0, Silver: 500, Gold: 1000, Platinum: 2000 };
+const ACHIEVEMENT_REQUIREMENTS = {
+  '50 Ads Watched': { type: 'adsWatched', count: 50 },
+  'Earned 500 Rupees': { type: 'totalEarnings', count: 500 },
+  '5 Referrals': { type: 'referrals', count: 5 }
+};
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const app = express();
@@ -81,6 +87,29 @@ const initializeUser = (userId) => {
   }
 };
 
+// Check and unlock achievements
+const unlockAchievements = (userId) => {
+  const users = readData();
+  const user = users[userId];
+  const unlockedAchievements = [];
+
+  for (const [achievement, requirement] of Object.entries(ACHIEVEMENT_REQUIREMENTS)) {
+    if (
+      !user.achievements.includes(achievement) &&
+      user[requirement.type] >= requirement.count
+    ) {
+      user.achievements.push(achievement);
+      unlockedAchievements.push(achievement);
+    }
+  }
+
+  if (unlockedAchievements.length > 0) {
+    writeData(users);
+  }
+
+  return unlockedAchievements;
+};
+
 // Bot /start command with command list
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
@@ -107,7 +136,8 @@ bot.start(async (ctx) => {
     `/referral_leaderboard - Top referrers\n` +
     `/tier - Check your tier\n` +
     `/spin - Spin the wheel\n` +
-    `/buy_spin - Buy extra spins`
+    `/buy_spin - Buy extra spins\n` +
+    `/achievements - View achievements`
   );
 });
 
@@ -131,6 +161,62 @@ bot.command('profile', (ctx) => {
     `Ads Watched: ${user.adsWatched}\n` +
     `Achievements: ${user.achievements.length > 0 ? user.achievements.join(', ') : 'No achievements yet'}`
   );
+});
+
+// Streak Bonus Command
+bot.command('streak_bonus', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const today = new Date().toDateString();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  const user = users[userId];
+
+  if (user.lastBonusDate === today) {
+    ctx.reply('You have already claimed your streak bonus today. Come back tomorrow!');
+    return;
+  }
+
+  // Check if the user has logged in for consecutive days
+  if (user.lastBonusDate === new Date(Date.now() - 86400000).toDateString()) {
+    user.streakDays += 1;
+  } else {
+    user.streakDays = 1;
+  }
+
+  const streakBonus = user.streakDays * STREAK_BONUS_AMOUNT;
+  user.balance += streakBonus;
+  user.totalEarnings += streakBonus;
+  user.lastBonusDate = today;
+  writeData(users);
+
+  ctx.reply(`🎉 You received a streak bonus of ${streakBonus} rupees for logging in ${user.streakDays} day(s) in a row! Your new balance is ${user.balance} rupees.`);
+});
+
+// Achievements Command
+bot.command('achievements', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+
+  if (!users[userId]) {
+    ctx.reply('Please start the bot first using /start.');
+    return;
+  }
+
+  const user = users[userId];
+  const unlockedAchievements = unlockAchievements(userId);
+
+  if (unlockedAchievements.length > 0) {
+    ctx.reply(`🎉 New Achievements Unlocked: ${unlockedAchievements.join(', ')}`);
+  } else if (user.achievements.length > 0) {
+    ctx.reply(`Your Achievements: ${user.achievements.join(', ')}`);
+  } else {
+    ctx.reply('No achievements unlocked yet. Keep earning and watching ads to unlock achievements!');
+  }
 });
 
 // Referral link command
