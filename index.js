@@ -15,223 +15,212 @@ const STREAK_BONUS_AMOUNT = 10;
 const SPIN_COST = 10;
 const SPIN_REWARD_VALUES = [10, 20, 5, 50, 15, 30, 25, 100];
 const TIER_LEVELS = { Bronze: 0, Silver: 500, Gold: 1000, Platinum: 2000 };
-const ACHIEVEMENT_REQUIREMENTS = {
-  '50 Ads Watched': { type: 'adsWatched', count: 50 },
-  'Earned 500 Rupees': { type: 'totalEarnings', count: 500 },
-  '5 Referrals': { type: 'referrals', count: 5 }
-};
+const adminUserIds = ['@Mass_Raja_1024', '@clawoffice'];
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json()); // Parse JSON data
 app.use(express.static('webapp'));
 app.listen(PORT, () => {
   console.log(`Web server is running on port ${PORT}`);
 });
 
-const webAppUrl = `https://claw-earning.onrender.com`;
-const channelId = '@ClawEarning';
-const adminUserIds = ['@Mass_Raja_1024', '@clawoffice'];
 const dataFilePath = path.join(__dirname, 'data.json');
 
-// Function to check if the user is an admin
-const isAdmin = (username) => adminUserIds.includes(username);
-
-// Function to read data from JSON file
+// Functions to read and write data
 const readData = () => {
-  try {
-    if (fs.existsSync(dataFilePath)) {
-      const data = fs.readFileSync(dataFilePath);
-      return JSON.parse(data);
-    }
-    return {};
-  } catch (error) {
-    console.error('Error reading data:', error);
-    return {};
+  if (fs.existsSync(dataFilePath)) {
+    const data = fs.readFileSync(dataFilePath);
+    return JSON.parse(data);
   }
+  return {};
 };
 
-// Function to write data to JSON file
 const writeData = (data) => {
-  try {
-    fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('Error writing data:', error);
-  }
+  fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
 };
 
-// Bot /start command with command list
-bot.start(async (ctx) => {
-  const userId = ctx.from.id;
+// Initialize user data if not present
+const initializeUser = (userId) => {
   const users = readData();
-  
   if (!users[userId]) {
     users[userId] = {
       balance: 20,
-      referrals: 0,
-      adsWatched: 0,
       totalEarnings: 20,
-      withdrawals: 0,
-      lastAdDate: new Date().toDateString(),
+      adsWatched: 0,
+      referrals: 0,
       hasWithdrawn: false,
+      upiId: null,
+      achievements: [],
       lastBonusDate: null,
       dailySpins: 0,
       extraSpins: 0,
       tier: 'Bronze',
-      streakDays: 0,
-      upiId: null,
-      achievements: [],
-      lastNotificationDate: null
+      streakDays: 0
     };
     writeData(users);
   }
+};
 
+// Bot /start command
+bot.start(async (ctx) => {
+  const userId = ctx.from.id;
+  initializeUser(userId);
+  
   const referralLink = `https://t.me/${ctx.botInfo.username}?start=ref=${userId}`;
   ctx.reply(
     `Welcome! You have received a 20 rupees bonus.\n\n` +
     `Your referral link: ${referralLink}\n\n` +
-    `Commands:\n` +
-    `/start - Restart the bot\n` +
-    `/profile - View profile\n` +
-    `/referral - Get referral link\n` +
-    `/watch_ad - Earn rewards by watching ads\n` +
-    `/balance - Check balance\n` +
-    `/withdraw - Request payout\n` +
-    `/set_upi - Set your UPI ID for withdrawals\n` +
-    `/daily_bonus - Claim daily bonus\n` +
-    `/streak_bonus - Claim streak bonus\n` +
-    `/quiz - Start quiz\n` +
-    `/support - Support options\n` +
-    `/stats - View stats\n` +
-    `/leaderboard - Top earners\n` +
-    `/referral_leaderboard - Top referrers\n` +
-    `/tier - Check your tier\n` +
-    `/spin - Spin the wheel\n` +
-    `/buy_spin - Buy extra spins\n` +
-    `/achievements - View achievements`
+    `Commands:\n/start, /profile, /referral, /watch_ad, /balance, /withdraw, /set_upi, /daily_bonus, /streak_bonus, /quiz, /support, /stats, /leaderboard, /referral_leaderboard, /tier, /spin, /buy_spin, /achievements`
   );
 });
 
-// Admin Commands
-
-// User Stats Command
-bot.command('user_stats', (ctx) => {
-  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
-
-  const args = ctx.message.text.split(" ");
-  const userId = args[1];
+// Profile Command
+bot.command('profile', (ctx) => {
+  const userId = ctx.from.id;
   const users = readData();
-
-  if (users[userId]) {
-    const user = users[userId];
-    ctx.reply(
-      `User ID: ${userId}\n` +
-      `Balance: ${user.balance}\n` +
-      `Total Earnings: ${user.totalEarnings}\n` +
-      `Referrals: ${user.referrals}\n` +
-      `Ads Watched: ${user.adsWatched}\n` +
-      `Withdrawals: ${user.withdrawals}\n` +
-      `Tier: ${user.tier}\n` +
-      `Achievements: ${user.achievements.join(", ")}`
-    );
+  const user = users[userId];
+  
+  if (user) {
+    ctx.reply(`Balance: ${user.balance} rupees\nTotal Earnings: ${user.totalEarnings} rupees\nReferrals: ${user.referrals}`);
   } else {
-    ctx.reply("User not found.");
+    ctx.reply('Please start the bot first using /start.');
   }
 });
 
-// Pending Withdrawals Command
-bot.command('pending_withdrawals', (ctx) => {
-  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
-
+// Referral Command
+bot.command('referral', (ctx) => {
+  const userId = ctx.from.id;
   const users = readData();
-  let pendingList = "Pending Withdrawals:\n\n";
-  let hasPending = false;
-
-  for (const [userId, user] of Object.entries(users)) {
-    if (user.balance >= INITIAL_MIN_PAYOUT && !user.hasWithdrawn) {
-      pendingList += `User ID: ${userId}, Balance: ${user.balance}\n`;
-      hasPending = true;
-    }
-  }
-
-  ctx.reply(hasPending ? pendingList : "No pending withdrawals.");
-});
-
-// Approve Withdrawal Command
-bot.command('approve_withdrawal', (ctx) => {
-  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
-
-  const args = ctx.message.text.split(" ");
-  const userId = args[1];
-  const users = readData();
-
+  
   if (users[userId]) {
-    const user = users[userId];
-    const minPayout = user.hasWithdrawn ? SUBSEQUENT_MIN_PAYOUT : INITIAL_MIN_PAYOUT;
+    const botUsername = ctx.botInfo.username;
+    const referralLink = `https://t.me/${botUsername}?start=ref=${userId}`;
+    ctx.reply(`Your referral link: ${referralLink}`);
+  } else {
+    ctx.reply('Please start the bot first using /start.');
+  }
+});
 
-    if (user.balance >= minPayout) {
-      user.balance -= minPayout;
-      user.withdrawals += 1;
-      user.hasWithdrawn = true;
+// Watch Ad Command (for AdsGram Integration)
+bot.command('watch_ad', (ctx) => {
+  ctx.reply("Watch an ad to earn rewards! An ad will be shown now.");
+  
+  // Placeholder for ad display logic. Here, you would trigger the ad display from AdsGram.
+});
+
+// Balance Command
+bot.command('balance', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const user = users[userId];
+  
+  if (user) {
+    ctx.reply(`Your current balance is ${user.balance} rupees.`);
+  } else {
+    ctx.reply('Please start the bot first using /start.');
+  }
+});
+
+// Tier Command
+bot.command('tier', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const user = users[userId];
+
+  if (user) {
+    const currentTier = user.tier;
+    ctx.reply(`Your Current Tier: ${currentTier}`);
+  } else {
+    ctx.reply('Please start the bot first using /start.');
+  }
+});
+
+// Spin Command
+bot.command('spin', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const user = users[userId];
+  
+  if (user) {
+    if (user.dailySpins < 1) {
+      const reward = SPIN_REWARD_VALUES[Math.floor(Math.random() * SPIN_REWARD_VALUES.length)];
+      user.balance += reward;
+      user.totalEarnings += reward;
+      user.dailySpins += 1;
       writeData(users);
-      ctx.reply(`Approved withdrawal of ${minPayout} rupees for User ID: ${userId}.`);
+      ctx.reply(`You spun the wheel and won ${reward} rupees!`);
     } else {
-      ctx.reply("User does not meet the minimum balance for withdrawal.");
+      ctx.reply("You've used your daily free spin. Try again tomorrow!");
     }
   } else {
-    ctx.reply("User not found.");
+    ctx.reply('Please start the bot first using /start.');
   }
 });
 
-// Reject Withdrawal Command
-bot.command('reject_withdrawal', (ctx) => {
-  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
-
-  const args = ctx.message.text.split(" ");
-  const userId = args[1];
-
-  if (userId) {
-    ctx.reply(`Rejected withdrawal request for User ID: ${userId}.`);
+// Buy Spin Command
+bot.command('buy_spin', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const user = users[userId];
+  
+  if (user && user.balance >= SPIN_COST) {
+    user.balance -= SPIN_COST;
+    user.extraSpins += 1;
+    writeData(users);
+    ctx.reply("You purchased an extra spin!");
   } else {
-    ctx.reply("Please specify a user ID to reject.");
+    ctx.reply("Insufficient balance to buy a spin.");
   }
 });
 
-// Send Announcement Command
-bot.command('send_announcement', (ctx) => {
-  if (!isAdmin(ctx.from.username)) return ctx.reply("Unauthorized access.");
-
-  const announcement = ctx.message.text.replace('/send_announcement', '').trim();
-  if (announcement) {
-    const users = readData();
-    for (const userId of Object.keys(users)) {
-      bot.telegram.sendMessage(userId, announcement);
+// Daily Bonus Command
+bot.command('daily_bonus', (ctx) => {
+  const userId = ctx.from.id;
+  const users = readData();
+  const user = users[userId];
+  
+  if (user) {
+    const today = new Date().toDateString();
+    if (user.lastBonusDate !== today) {
+      user.balance += DAILY_BONUS_AMOUNT;
+      user.totalEarnings += DAILY_BONUS_AMOUNT;
+      user.lastBonusDate = today;
+      writeData(users);
+      ctx.reply(`You've claimed your daily bonus of ${DAILY_BONUS_AMOUNT} rupees!`);
+    } else {
+      ctx.reply("You've already claimed today's bonus.");
     }
-    ctx.reply("Announcement sent to all users.");
   } else {
-    ctx.reply("Please provide a message to send as an announcement.");
+    ctx.reply('Please start the bot first using /start.');
+  }
+});
+
+// Reward URL Endpoint for AdsGram Integration
+app.post('/reward', (req, res) => {
+  const { userId, completionStatus } = req.body;
+  const users = readData();
+  
+  if (completionStatus === 'completed' && users[userId]) {
+    users[userId].balance += REWARD_AMOUNT;
+    users[userId].totalEarnings += REWARD_AMOUNT;
+    writeData(users);
+    res.status(200).send({ success: true, message: 'Reward credited' });
+  } else {
+    res.status(400).send({ success: false, message: 'Ad not completed or user not found' });
   }
 });
 
 // Error handling
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}:`, err);
-  ctx.reply('An unexpected error occurred. Please try again later.');
+  ctx.reply('An error occurred. Try again later.');
 });
 
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Rejection:', reason);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-});
-
-// Launch the bot
-bot.launch().then(() => {
-  console.log('Bot is running...');
-});
+// Launch bot and Express server
+bot.launch().then(() => console.log('Bot is running...'));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
