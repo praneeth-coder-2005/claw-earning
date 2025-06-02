@@ -1,29 +1,138 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Claw Mini App</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src='//libtl.com/sdk.js' data-zone='9404328' data-sdk='show_9404328'></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Claw Earning</title>
+
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Monetag Ads SDK -->
+  <script src="//libtl.com/sdk.js" data-zone="9404328" data-sdk="show_9404328"></script>
+
+  <!-- Style -->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #111827;
+    }
+
+    .container {
+      max-width: 400px;
+      margin: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .card {
+      background: white;
+      border-radius: 1rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      width: 100%;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .coin {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #16a34a;
+    }
+
+    .btn {
+      display: block;
+      background: #2563eb;
+      color: white;
+      padding: 0.75rem 1rem;
+      border: none;
+      border-radius: 0.75rem;
+      font-size: 1rem;
+      margin-top: 1rem;
+      cursor: pointer;
+      transition: background 0.3s;
+      width: 100%;
+    }
+
+    .btn:hover {
+      background: #1e40af;
+    }
+
+    .status {
+      margin-top: 1rem;
+      color: #475569;
+      font-size: 0.95rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      margin-bottom: 0.5rem;
+      color: #334155;
+    }
+  </style>
 </head>
+
 <body>
-    <div id="main">
-        <h2>Earn Coins</h2>
-        <button onclick="watchAd()">Watch Ad (Rewarded)</button>
-        <p id="reward-status"></p>
+  <div class="container">
+    <div class="card">
+      <h2>Welcome 👋</h2>
+      <div id="username">@loading...</div>
     </div>
 
-    <script>
-        Telegram.WebApp.ready();
+    <div class="card">
+      <div class="section-title">Your Coins</div>
+      <div class="coin" id="coin-balance">0</div>
+    </div>
 
-        function watchAd() {
-            show_9404328('pop').then(() => {
-                // Reward logic here
-                document.getElementById("reward-status").innerText = "✅ Ad watched! You earned 50 coins!";
-                // Call backend to credit coins if needed
-            }).catch(e => {
-                document.getElementById("reward-status").innerText = "❌ Ad failed or skipped.";
-            });
-        }
-    </script>
+    <div class="card">
+      <button class="btn" onclick="watchAd()">🎥 Watch Ad (Earn 50 coins)</button>
+      <button class="btn" onclick="refer()">👥 Invite Friends</button>
+      <button class="btn" onclick="openLeaderboard()">🏆 View Leaderboard</button>
+      <div class="status" id="status-msg"></div>
+    </div>
+  </div>
+
+  <script>
+    Telegram.WebApp.ready();
+    const tgUser = Telegram.WebApp.initDataUnsafe?.user || { username: "Guest" };
+
+    document.getElementById("username").innerText = "@" + tgUser.username;
+
+    let coins = 0;
+
+    function updateCoins(amount) {
+      coins += amount;
+      document.getElementById("coin-balance").innerText = coins;
+    }
+
+    function watchAd() {
+      show_9404328('pop')
+        .then(() => {
+          updateCoins(50);
+          document.getElementById("status-msg").innerText = "✅ You earned 50 coins!";
+        })
+        .catch(() => {
+          document.getElementById("status-msg").innerText = "❌ Ad was skipped or failed.";
+        });
+    }
+
+    function refer() {
+      Telegram.WebApp.openTelegramLink("https://t.me/claw_earning_bot?start=" + tgUser.id);
+    }
+
+    function openLeaderboard() {
+      Telegram.WebApp.openTelegramLink("https://t.me/claw_earning_bot/leaderboard");
+    }
+  </script>
 </body>
 </html>
