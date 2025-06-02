@@ -1,23 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Claw Mini App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <style>
-    body {
-      text-align: center;
-      font-family: Arial, sans-serif;
-      background-color: #fafafa;
-      padding: 40px;
-    }
-    h1 {
-      color: #333;
-    }
-  </style>
+    <title>Claw Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src='//libtl.com/sdk.js' data-zone='9404328' data-sdk='show_9404328'></script>
 </head>
 <body>
-  <h1>🚀 Claw Mini App</h1>
-  <p>This is a sample page for Monetag ad approval.</p>
+    <div id="main">
+        <h2>Earn Coins</h2>
+        <button onclick="watchAd()">Watch Ad (Rewarded)</button>
+        <p id="reward-status"></p>
+    </div>
+
+    <script>
+        Telegram.WebApp.ready();
+
+        function watchAd() {
+            show_9404328('pop').then(() => {
+                // Reward logic here
+                document.getElementById("reward-status").innerText = "✅ Ad watched! You earned 50 coins!";
+                // Call backend to credit coins if needed
+            }).catch(e => {
+                document.getElementById("reward-status").innerText = "❌ Ad failed or skipped.";
+            });
+        }
+    </script>
 </body>
 </html>
