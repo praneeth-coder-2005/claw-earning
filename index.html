@@ -7,10 +7,10 @@
 
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <!-- Monetag Ads SDK -->
   <script src="//libtl.com/sdk.js" data-zone="9404328" data-sdk="show_9404328"></script>
 
-  <!-- Style -->
   <style>
     body {
       margin: 0;
@@ -19,7 +19,6 @@
       background: #f8fafc;
       color: #111827;
     }
-
     .container {
       max-width: 400px;
       margin: auto;
@@ -28,7 +27,6 @@
       flex-direction: column;
       align-items: center;
     }
-
     .card {
       background: white;
       border-radius: 1rem;
@@ -38,18 +36,15 @@
       width: 100%;
       text-align: center;
     }
-
     h2 {
       font-size: 1.5rem;
       margin-bottom: 0.5rem;
     }
-
     .coin {
       font-size: 2rem;
       font-weight: bold;
       color: #16a34a;
     }
-
     .btn {
       display: block;
       background: #2563eb;
@@ -63,17 +58,14 @@
       transition: background 0.3s;
       width: 100%;
     }
-
     .btn:hover {
       background: #1e40af;
     }
-
     .status {
       margin-top: 1rem;
       color: #475569;
       font-size: 0.95rem;
     }
-
     .section-title {
       font-size: 1.25rem;
       margin-bottom: 0.5rem;
@@ -81,7 +73,6 @@
     }
   </style>
 </head>
-
 <body>
   <div class="container">
     <div class="card">
@@ -104,26 +95,43 @@
 
   <script>
     Telegram.WebApp.ready();
-    const tgUser = Telegram.WebApp.initDataUnsafe?.user || { username: "Guest" };
+
+    const API_BASE = "https://46f5-35-196-176-71.ngrok-free.app"; // Backend URL
+    const tgUser = Telegram.WebApp.initDataUnsafe?.user || { id: 0, username: "Guest" };
 
     document.getElementById("username").innerText = "@" + tgUser.username;
 
-    let coins = 0;
+    async function loadUserData() {
+      try {
+        const res = await fetch(`${API_BASE}/user?id=${tgUser.id}&username=${tgUser.username}`);
+        const data = await res.json();
+        document.getElementById("coin-balance").innerText = data.coins;
+      } catch (err) {
+        document.getElementById("status-msg").innerText = "Failed to load user data.";
+      }
+    }
 
-    function updateCoins(amount) {
-      coins += amount;
-      document.getElementById("coin-balance").innerText = coins;
+    async function reward(taskName) {
+      try {
+        const res = await fetch(`${API_BASE}/reward?id=${tgUser.id}&task=${taskName}`, {
+          method: "POST"
+        });
+        const data = await res.json();
+        if (data.new_balance !== undefined) {
+          document.getElementById("coin-balance").innerText = data.new_balance;
+        }
+        document.getElementById("status-msg").innerText = data.message || "Task complete!";
+      } catch (err) {
+        document.getElementById("status-msg").innerText = "Something went wrong.";
+      }
     }
 
     function watchAd() {
-      show_9404328('pop')
-        .then(() => {
-          updateCoins(50);
-          document.getElementById("status-msg").innerText = "✅ You earned 50 coins!";
-        })
-        .catch(() => {
-          document.getElementById("status-msg").innerText = "❌ Ad was skipped or failed.";
-        });
+      show_9404328("pop").then(() => {
+        reward("watch_ad");
+      }).catch(() => {
+        document.getElementById("status-msg").innerText = "❌ Ad skipped or failed.";
+      });
     }
 
     function refer() {
@@ -133,6 +141,8 @@
     function openLeaderboard() {
       Telegram.WebApp.openTelegramLink("https://t.me/claw_earning_bot/leaderboard");
     }
+
+    loadUserData();
   </script>
 </body>
-</html>
+                                            </html>
