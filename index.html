@@ -7,20 +7,15 @@
 
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <!-- Monetag Ads SDK -->
   <script src="//libtl.com/sdk.js" data-zone="9404328" data-sdk="show_9404328"></script>
 
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
     body {
+      font-family: 'Segoe UI', sans-serif;
       margin: 0;
       padding: 0;
-      font-family: 'Poppins', sans-serif;
       background: linear-gradient(to bottom right, #e0f2fe, #f0fdf4);
       color: #111827;
     }
@@ -34,59 +29,38 @@
     .card {
       background: white;
       border-radius: 1.5rem;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
       padding: 1.5rem;
       margin-bottom: 1.5rem;
       text-align: center;
+      transition: transform 0.3s ease;
     }
 
-    .user-section {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      justify-content: center;
-      font-size: 1.1rem;
-      font-weight: 600;
+    .card:hover {
+      transform: scale(1.01);
     }
 
-    .coin-display {
-      font-size: 2.5rem;
-      font-weight: 700;
+    .coin {
+      font-size: 2.25rem;
+      font-weight: bold;
       color: #16a34a;
-      margin-top: 0.5rem;
-    }
-
-    .section-title {
-      font-size: 1.2rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-      color: #334155;
     }
 
     .btn {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      justify-content: center;
       background: #2563eb;
       color: white;
-      padding: 0.9rem 1.2rem;
       border: none;
+      padding: 0.75rem;
       border-radius: 1rem;
       font-size: 1rem;
-      margin-top: 0.8rem;
       width: 100%;
+      margin: 0.5rem 0;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+      transition: background 0.3s;
     }
 
     .btn:hover {
-      background: #1e40af;
-    }
-
-    .btn i {
-      font-size: 1.2rem;
+      background: #1e3a8a;
     }
 
     .status {
@@ -94,86 +68,84 @@
       color: #475569;
       font-size: 0.95rem;
     }
+
+    h2 {
+      font-size: 1.6rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .tag {
+      font-size: 1rem;
+      color: #64748b;
+    }
   </style>
 </head>
+
 <body>
   <div class="container">
     <div class="card">
-      <div class="user-section">
-        <img src="https://cdn-icons-png.flaticon.com/512/9131/9131529.png" width="28" />
-        <span id="username">@loading...</span>
-      </div>
+      <h2>Welcome 👋</h2>
+      <div id="username" class="tag">@loading...</div>
     </div>
 
     <div class="card">
-      <div class="section-title">Your Coin Balance</div>
-      <div class="coin-display" id="coin-balance">0</div>
+      <div class="tag">Your Coins</div>
+      <div class="coin" id="coin-balance">0</div>
     </div>
 
     <div class="card">
-      <button class="btn" onclick="watchAd()">
-        <i>🎥</i> Watch Ad & Earn 50
-      </button>
-      <button class="btn" onclick="refer()">
-        <i>👥</i> Invite Friends
-      </button>
-      <button class="btn" onclick="openLeaderboard()">
-        <i>🏆</i> View Leaderboard
-      </button>
+      <button class="btn" onclick="reward('watch_ad')">🎥 Watch Ad (50 coins)</button>
+      <button class="btn" onclick="reward('daily_claim')">🎁 Daily Claim</button>
+      <button class="btn" onclick="reward('join_channel')">📢 Join Telegram Channel</button>
+      <button class="btn" onclick="reward('visit_site')">🌐 Visit Sponsor Site</button>
+      <button class="btn" onclick="refer()">👥 Invite Friends</button>
+      <button class="btn" onclick="leaderboard()">🏆 View Leaderboard</button>
       <div class="status" id="status-msg"></div>
     </div>
   </div>
 
   <script>
+    const API_BASE = "https://9385-34-60-29-28.ngrok-free.app";  // ← your backend
+
     Telegram.WebApp.ready();
-
-    const API_BASE = "https://46f5-35-196-176-71.ngrok-free.app"; // backend URL
     const tgUser = Telegram.WebApp.initDataUnsafe?.user || { id: 0, username: "Guest" };
-
     document.getElementById("username").innerText = "@" + tgUser.username;
 
-    async function loadUserData() {
-      try {
-        const res = await fetch(`${API_BASE}/user?id=${tgUser.id}&username=${tgUser.username}`);
-        const data = await res.json();
-        document.getElementById("coin-balance").innerText = data.coins;
-      } catch {
-        document.getElementById("status-msg").innerText = "Failed to load user data.";
-      }
+    async function loadUser() {
+      const res = await fetch(`${API_BASE}/user?id=${tgUser.id}&username=${tgUser.username}`);
+      const data = await res.json();
+      document.getElementById("coin-balance").innerText = data.coins;
     }
 
-    async function reward(taskName) {
-      try {
-        const res = await fetch(`${API_BASE}/reward?id=${tgUser.id}&task=${taskName}`, {
-          method: "POST"
-        });
-        const data = await res.json();
-        if (data.new_balance !== undefined) {
-          document.getElementById("coin-balance").innerText = data.new_balance;
+    async function reward(task) {
+      if (task === "watch_ad") {
+        try {
+          await show_9404328('pop');
+        } catch {
+          document.getElementById("status-msg").innerText = "❌ Ad skipped or failed.";
+          return;
         }
-        document.getElementById("status-msg").innerText = data.message || "✅ Task complete!";
-      } catch {
-        document.getElementById("status-msg").innerText = "Something went wrong.";
       }
-    }
 
-    function watchAd() {
-      show_9404328("pop").then(() => {
-        reward("watch_ad");
-      }).catch(() => {
-        document.getElementById("status-msg").innerText = "❌ Ad skipped or failed.";
+      const res = await fetch(`${API_BASE}/reward`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ id: tgUser.id, task })
       });
+      const data = await res.json();
+      document.getElementById("coin-balance").innerText = data.new_balance;
+      document.getElementById("status-msg").innerText = data.message || data.error;
     }
 
     function refer() {
       Telegram.WebApp.openTelegramLink("https://t.me/claw_earning_bot?start=" + tgUser.id);
     }
 
-    function openLeaderboard() {
+    function leaderboard() {
       Telegram.WebApp.openTelegramLink("https://t.me/claw_earning_bot/leaderboard");
     }
 
-    loadUserData();
+    loadUser();
   </script>
 </body>
 </html>
